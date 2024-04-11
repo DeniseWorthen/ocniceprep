@@ -48,6 +48,7 @@ module utils_mod
   public getfield
   public packarrays
   public dumpnc
+  public remap
   public nf90_err
   public createRH
   public remapRH
@@ -127,6 +128,9 @@ contains
 
     print '(a,2g14.7)','dst min/max ',minval(dstptr), maxval(dstptr)
     dst_field = dstptr
+
+    call ESMF_FieldDestroy(fdsrc)
+    call EMSF_FieldDestroy(flddst)
 
   end subroutine remapRH2d
 

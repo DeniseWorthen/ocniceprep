@@ -7,15 +7,15 @@ program ocniceprep
   use init_mod   , only : do_ocnprep, debug, logunit
   use arrays_mod , only : b2d, b3d, rgb2d, rgb3d, dstlon, dstlat, setup_packing
   use arrays_mod , only : nbilin2d, nbilin3d, bilin2d, bilin3d
-  use utils_mod  , only : getfield, packarrays, dumpnc, nf90_err
+  use utils_mod  , only : getfield, packarrays, remap, dumpnc, nf90_err
   use utils_mod  , only : createRH, remapRH, ChkErr
 
   implicit none
 
   type(ESMF_VM)      :: vm
-  character(len=120) :: gridfile
-  character(len=120) :: wgtsfile
-  character(len=120) :: fout
+  character(len=160) :: gridfile
+  character(len=160) :: wgtsfile
+  character(len=160) :: fout
 
   ! dimensions, units and variables from source file used in creation of
   ! output netcdf
@@ -34,9 +34,11 @@ program ocniceprep
 
   character(len=120) :: mesh_src, mesh_dst
 
-  real    :: vfill
+  real(kind=8) :: urot, vrot
+  real(kind=8), allocatable :: tmp1d(:)
+
   integer :: nvalid
-  integer :: n,rc,ncid,varid
+  integer :: n,nn,rc,ncid,varid
   integer :: idimid,jdimid,kdimid,edimid,timid
   integer :: idx1,idx2,idx3
 
@@ -106,9 +108,9 @@ program ocniceprep
   endif
   do n = 1,nvalid
      if (debug) then
-        write(logunit,'(a12,i4,a10,3(a6))')trim(outvars(n)%var_name)//', ',outvars(n)%var_dimen, &
-             ', '//trim(outvars(n)%var_remapmethod),', '//trim(outvars(n)%var_grid),             &
-             ', '//trim(outvars(n)%var_pair),', '//trim(outvars(n)%var_pair_grid)
+        write(logunit,'(a12,i4,a10,3(a6),a2,i4)')trim(outvars(n)%var_name)//', ',outvars(n)%var_dimen, &
+             ', '//trim(outvars(n)%var_remapmethod),', '//trim(outvars(n)%var_grid),                   &
+             ', '//trim(outvars(n)%var_pair),', '//trim(outvars(n)%var_pair_grid),', ',n
      end if
      if (do_ocnprep) then
         call nf90_err(nf90_inq_varid(ncid, trim(outvars(n)%var_name), varid), 'get variable Id: '//trim(outvars(n)%var_name))
@@ -179,6 +181,54 @@ program ocniceprep
              nk=nlevs, nflds=nbilin3d, field=rgb3d)
      end if
   end if
+
+  !--------------------------------------------------------
+  ! find the index of the vector pairs in the packed, regridded fields
+  ! rotate on Ct from IJ->EW and remap back to Bu
+  !--------------------------------------------------------
+
+  allocate(tmp1d(1:nxr*nyr)); tmp1d = 0.0
+  wgtsfile = trim(wgtsdir)//fdst(3:5)//'/'//'tripole.'//trim(fdst)//'.Ct.to.Bu.bilinear.nc'
+  idx1 = 0; idx2 = 0
+  if (do_ocnprep) then
+  else
+     do n = 1,nbilin2d
+        if (len_trim(outvars(n)%var_pair) > 0 .and. idx1 .eq. 0) then
+           idx1 = n
+           idx2 = n+1
+        end if
+     end do
+     print *,trim(outvars(idx1)%var_name),trim(outvars(idx2)%var_name)
+     do nn = 1,nxr*nyr
+        urot = rgb2d(nn,idx1)*cos(angdst(nn)) + rgb2d(nn,idx2)*sin(angdst(nn))
+        vrot = rgb2d(nn,idx2)*cos(angdst(nn)) - rgb2d(nn,idx1)*sin(angdst(nn))
+        rgb2d(nn,idx1) = urot
+        rgb2d(nn,idx2) = vrot
+     end do
+     call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin2d.Ct.ij.nc', 'rgbilin2d', dims=(/nxr,nyr/),       &
+          nflds=nbilin2d, field=rgb2d)
+
+     tmp1d(:) = rgb2d(:,idx1)
+     call remap(trim(wgtsfile), tmp1d, rgb2d(:,idx1))
+     tmp1d(:) = rgb2d(:,idx2)
+     call remap(trim(wgtsfile), tmp1d, rgb2d(:,idx2))
+
+     call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin2d.Bu.ij.nc', 'rgbilin2d', dims=(/nxr,nyr/),       &
+          nflds=nbilin2d, field=rgb2d)
+  end if
+
+  ! do n=1,nbilin2d or nbilin3d
+  ! if name=uvel then get the uvel,vvel
+  ! rotate to IJ on Ct
+  ! re-stagger Ct->Bu
+  !do ii = 1,dstnx*dstny
+  !   urot = vecpairdst(ii,1)*cosrotdst(ii) + vecpairdst(ii,2)*sinrotdst(ii)
+  !   vrot = vecpairdst(ii,2)*cosrotdst(ii) - vecpairdst(ii,1)*sinrotdst(ii)
+  !   vecpairdst(ii,1) = urot
+  !   vecpairdst(ii,2) = vrot
+  !end do
+
+
 #ifdef test
   ! --------------------------------------------------------
   ! write the mapped fields
@@ -221,11 +271,9 @@ program ocniceprep
         vname = trim(b2d(n)%var_name)
         vunit = trim(b2d(n)%units)
         vlong = trim(b2d(n)%long_name)
-        vfill = b2d(n)%var_fillvalue
         call nf90_err(nf90_def_var(ncid, vname, nf90_float, (/idimid,jdimid,timid/), varid), 'define variable: '// vname)
         call nf90_err(nf90_put_att(ncid, varid,      'units', vunit), 'put variable attribute: units')
         call nf90_err(nf90_put_att(ncid, varid,  'long_name', vlong), 'put variable attribute: long_name')
-        call nf90_err(nf90_put_att(ncid, varid, '_FillValue', vfill), 'put variable attribute: FillValue')
      enddo
   end if
   if (allocated(c2d)) then
@@ -233,11 +281,9 @@ program ocniceprep
         vname = trim(c2d(n)%var_name)
         vunit = trim(c2d(n)%units)
         vlong = trim(c2d(n)%long_name)
-        vfill = c2d(n)%var_fillvalue
         call nf90_err(nf90_def_var(ncid, vname, nf90_float, (/idimid,jdimid,timid/), varid), 'define variable: '// vname)
         call nf90_err(nf90_put_att(ncid, varid,      'units', vunit), 'put variable attribute: units' )
         call nf90_err(nf90_put_att(ncid, varid,  'long_name', vlong), 'put variable attribute: long_name' )
-        call nf90_err(nf90_put_att(ncid, varid, '_FillValue', vfill), 'put variable attribute: FillValue' )
      enddo
   end if
   if (allocated(b3d)) then
@@ -245,11 +291,9 @@ program ocniceprep
         vname = trim(b3d(n)%var_name)
         vunit = trim(b3d(n)%units)
         vlong = trim(b3d(n)%long_name)
-        vfill = b3d(n)%var_fillvalue
         call nf90_err(nf90_def_var(ncid, vname, nf90_float, (/idimid,jdimid,kdimid,timid/), varid), 'define variable: '// vname)
         call nf90_err(nf90_put_att(ncid, varid,      'units', vunit), 'put variable attribute: units' )
         call nf90_err(nf90_put_att(ncid, varid,  'long_name', vlong), 'put variable attribute: long_name' )
-        call nf90_err(nf90_put_att(ncid, varid, '_FillValue', vfill), 'put variable attribute: FillValue' )
      enddo
   end if
   call nf90_err(nf90_enddef(ncid), 'enddef: '// trim(fout))
@@ -272,7 +316,6 @@ program ocniceprep
   if (allocated(rgb2d)) then
      do n = 1,nbilin2d
         out2d(:,:) = reshape(rgb2d(:,n), (/nxr,nyr/))
-        out2d(:,nyr) = vfill
         vname = trim(b2d(n)%var_name)
         call nf90_err(nf90_inq_varid(ncid, vname, varid), 'get variable Id: '//vname)
         call nf90_err(nf90_put_var(ncid,   varid, out2d), 'put variable: '//vname)
@@ -281,7 +324,6 @@ program ocniceprep
   if (allocated(rgc2d)) then
      do n = 1,nconsd2d
         out2d(:,:) = reshape(rgc2d(:,n), (/nxr,nyr/))
-        out2d(:,nyr) = vfill
         vname = trim(c2d(n)%var_name)
         call nf90_err(nf90_inq_varid(ncid, vname, varid), 'get variable Id: '//vname)
         call nf90_err(nf90_put_var(ncid,   varid, out2d), 'put variable: '//vname)
@@ -290,7 +332,6 @@ program ocniceprep
   if (allocated(rgb3d)) then
      do n = 1,nbilin3d
         out3d(:,:,:) = reshape(rgb3d(:,:,n), (/nxr,nyr,nlevs/))
-        out3d(:,nyr,:) = vfill
         vname = trim(b3d(n)%var_name)
         call nf90_err(nf90_inq_varid(ncid, vname, varid), 'get variable Id: '//vname)
         call nf90_err(nf90_put_var(ncid,   varid, out3d), 'put variable: '//vname)
