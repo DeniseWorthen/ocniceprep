@@ -8,10 +8,11 @@ program ocniceprep
   use arrays_mod , only : b2d, b3d, rgb2d, rgb3d, dstlon, dstlat, setup_packing
   use arrays_mod , only : nbilin2d, nbilin3d, bilin2d, bilin3d
   use utils_mod  , only : getfield, packarrays, dumpnc, nf90_err
-  use utils_mod  , only : createRH
+  use utils_mod  , only : createRH, remapRH, ChkErr
 
   implicit none
 
+  type(ESMF_VM)      :: vm
   character(len=120) :: gridfile
   character(len=120) :: wgtsfile
   character(len=120) :: fout
@@ -39,6 +40,18 @@ program ocniceprep
   integer :: idimid,jdimid,kdimid,edimid,timid
   integer :: idx1,idx2,idx3
 
+  character(len=*), parameter :: u_FILE_u = &
+       __FILE__
+
+  ! --------------------------------------------------------
+  ! initialize ESMF
+  ! --------------------------------------------------------
+
+  call ESMF_Initialize(rc=rc)
+  if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+  call ESMF_VMGetGlobal(vm, rc=rc)
+  if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
   ! --------------------------------------------------------
   ! read the nml file and a file containing the list of
   ! variables to be remapped
@@ -51,10 +64,10 @@ program ocniceprep
   ! create a regrid RH from source to destination
   ! --------------------------------------------------------
 
-  mesh_src = trim(griddir)//fsrc(3:5)//'mesh.'//trim(fsrc)//'.nc'
-  mesh_dst = trim(griddir)//fdst(3:5)//'mesh.'//trim(fdst)//'.nc'
-
-  !call createRH(trim(mesh_src),trim(mesh_dst),rc)
+  mesh_src = trim(griddir)//fsrc(3:5)//'/'//'mesh.'//trim(fsrc)//'.nc'
+  mesh_dst = trim(griddir)//fdst(3:5)//'/'//'mesh.'//trim(fdst)//'.nc'
+  print '(a)',trim(mesh_src),trim(mesh_dst)
+  call createRH(trim(mesh_src),trim(mesh_dst),rc)
 
   ! --------------------------------------------------------
   ! read the master grid file and obtain the rotation angle
@@ -65,13 +78,11 @@ program ocniceprep
   allocate(angdst(nxr*nyr)); angdst = 0.0
 
   gridfile = trim(griddir)//fsrc(3:5)//'/'//'tripole.'//trim(fsrc)//'.nc'
-  !print '(a)',trim(gridfile)
   call nf90_err(nf90_open(trim(gridfile), nf90_nowrite, ncid), 'open: '//trim(gridfile))
   call getfield(trim(gridfile), 'anglet', dims=(/nxt,nyt/), field=angsrc)
   call nf90_err(nf90_close(ncid), 'close: '//trim(gridfile))
 
   gridfile = trim(griddir)//fdst(3:5)//'/'//'tripole.'//trim(fdst)//'.nc'
-  !print '(a)',trim(gridfile)
   call nf90_err(nf90_open(trim(gridfile), nf90_nowrite, ncid), 'open: '//trim(gridfile))
   call getfield(trim(gridfile), 'anglet', dims=(/nxr,nyr/), field=angdst)
   call nf90_err(nf90_close(ncid), 'close: '//trim(gridfile))
@@ -130,10 +141,10 @@ program ocniceprep
      call packarrays(trim(input_file), trim(wgtsdir)//fsrc(3:5)//'/', cos(angsrc), sin(angsrc),         &
           b2d, dims=(/nxt,nyt/), nflds=nbilin2d, fields=bilin2d)
      rgb2d = 0.0
-     !call remap(src_field=bilin2d, dst_field=rgb2d)
+     call remapRH(src_field=bilin2d, dst_field=rgb2d)
 
      if (debug) then
-        write(logunit,'(a)')'remap 2D fields bilinear with '//trim(wgtsfile)
+        write(logunit,'(a)')'remap 2D fields bilinear with RH '
         write(logunit,'(a)')'packed min/max values, mapped min/max values'
         do n = 1,nbilin2d
            write(logunit,'(i4,a10,3(a2,a6),4g14.4)')n,trim(b2d(n)%var_name),'  ',                       &
@@ -152,10 +163,10 @@ program ocniceprep
      call packarrays(trim(input_file), trim(wgtsdir)//fsrc(3:5)//'/', cos(angsrc), sin(angsrc),         &
           b3d, dims=(/nxt,nyt,nlevs/), nflds=nbilin3d, fields=bilin3d)
      rgb3d = 0.0
-     !call remap(src_field=bilin3d, dst_field=rgb3d)
+     !call remapRH(src_field=bilin3d, dst_field=rgb3d)
 
      if (debug) then
-        write(logunit,'(a)')'remap 3D fields bilinear with '//trim(wgtsfile)
+        write(logunit,'(a)')'remap 3D fields bilinear with RH'
         write(logunit,'(a)')'packed min/max values,mapped min/max values'
         do n = 1,nbilin3d
            write(logunit,'(i4,a10,3(a2,a6),4g14.4)')n,trim(b3d(n)%var_name),'  ',                       &

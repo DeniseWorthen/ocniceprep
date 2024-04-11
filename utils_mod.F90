@@ -11,7 +11,6 @@ module utils_mod
   type(ESMF_RouteHandle) :: rh
   type(ESMF_Mesh)        :: meshsrc, meshdst
   type(ESMF_Field)       :: fldsrc, flddst
-  type(ESMF_VM)          :: vm
 
   interface getfield
      module procedure getfield2d
@@ -35,8 +34,8 @@ module utils_mod
   end interface remap
 
   interface remapRH
-     module procedure remap2dRH
-     module procedure remap3dRH
+     module procedure remapRH2d
+     module procedure remapRH3d
   end interface remapRH
 
   interface dumpnc
@@ -51,6 +50,8 @@ module utils_mod
   public dumpnc
   public nf90_err
   public createRH
+  public remapRH
+  public ChkErr
 
   character(len=*), parameter :: u_FILE_u = &
        __FILE__
@@ -66,11 +67,6 @@ contains
 
     ! local variables
     real(kind=8) , pointer  :: srcptr(:), dstptr(:)
-
-    call ESMF_Initialize(rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    call ESMF_VMGetGlobal(vm, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
     meshsrc = ESMF_MeshCreate(filename=trim(srcmeshfile), fileformat=ESMF_FILEFORMAT_ESMFMESH, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
@@ -98,7 +94,7 @@ contains
   !----------------------------------------------------------
   ! remap a packed field of nflds
   !----------------------------------------------------------
-  subroutine remap2dRH(src_field,dst_field)
+  subroutine remapRH2d(src_field,dst_field)
 
     real(kind=8), intent(in)  :: src_field(:,:)
     real(kind=8), intent(out) :: dst_field(:,:)
@@ -109,17 +105,32 @@ contains
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)
 
-    fldsrc = ESMF_FieldCreate(meshsrc, farrayPtr=srcptr, meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    flddst = ESMF_FieldCreate(meshdst, farrayPtr=dstptr, meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    fldsrc = ESMF_FieldCreate(meshsrc, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, &
+         ungriddedLbound=(/1/), ungriddedUbound=(/size(src_field,2)/),       &
+         gridToFieldMap=(/1/), rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    flddst = ESMF_FieldCreate(meshdst, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, &
+         ungriddedLbound=(/1/), ungriddedUbound=(/size(dst_field,2)/),       &
+         gridToFieldMap=(/1/), rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
+    call ESMF_FieldGet(fldsrc, farrayptr=srcptr, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+    call ESMF_FieldGet(flddst, farrayptr=dstptr, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+    dstptr = 0.0
+    srcptr = src_field
+
+    print '(a,2g14.7)','src min/max ',minval(srcptr), maxval(srcptr)
     call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
-  end subroutine remap2dRH
+    print '(a,2g14.7)','dst min/max ',minval(dstptr), maxval(dstptr)
+    dst_field = dstptr
 
-  subroutine remap3dRH(src_field,dst_field)
+  end subroutine remapRH2d
+
+  subroutine remapRH3d(src_field,dst_field)
 
     real(kind=8), intent(in)  :: src_field(:,:,:)
     real(kind=8), intent(out) :: dst_field(:,:,:)
@@ -138,7 +149,7 @@ contains
     call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-  end subroutine remap3dRH
+  end subroutine remapRH3d
 
   !----------------------------------------------------------
   ! pack 2D fields into arrays by mapping type
