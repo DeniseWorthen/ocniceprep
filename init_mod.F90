@@ -50,7 +50,7 @@ contains
     integer :: ierr, iounit
     integer :: srcdims(2), dstdims(2)
 
-    namelist /ocnicepost_nml/ ftype, srcdims, wgtsdir, griddir, dstdims, angvar, debug
+    namelist /ocniceprep_nml/ ftype, srcdims, wgtsdir, griddir, dstdims, angvar, debug
 
     ! --------------------------------------------------------
     ! read the name list
@@ -68,14 +68,15 @@ contains
 
     ! Open and read namelist file.
     open (action='read', file=trim(fname), iostat=ierr, newunit=iounit)
-    read (nml=ocnicepost_nml, iostat=ierr, unit=iounit)
+    read (nml=ocniceprep_nml, iostat=ierr, unit=iounit)
     if (ierr /= 0) then
        write (6, '(a)') 'Error: invalid namelist format.'
     end if
     close (iounit)
     nxt = srcdims(1); nyt = srcdims(2)
     nxr = dstdims(1); nyr = dstdims(2)
-
+    print *,nxt,nyt
+    print *,nxr,nyr
     ! initialize the source file type and variables
     if (trim(ftype) == 'ocean') then
        do_ocnprep = .true.
@@ -96,9 +97,9 @@ contains
     end if
 
     fdst = ''
-    if (nxr == 720  .and. nyr == 576) fsrc = 'mx050'     ! 1/2deg tripole
-    if (nxr == 360  .and. nyr == 320) fsrc = 'mx100'     ! 1deg tripole
-    if (nxr == 72   .and. nyr == 35)  fsrc = 'mx500'     ! 5deg tripole
+    if (nxr == 720  .and. nyr == 576) fdst = 'mx050'     ! 1/2deg tripole
+    if (nxr == 360  .and. nyr == 320) fdst = 'mx100'     ! 1deg tripole
+    if (nxr == 72   .and. nyr == 35)  fdst = 'mx500'     ! 5deg tripole
     if (len_trim(fdst) == 0) then
        write(0,'(a)')'FATAL ERROR: destination grid dimensions unknown'
        stop 3
