@@ -2,13 +2,13 @@ program ocniceprep
 
   use ESMF
   use netcdf
-  use init_mod   , only : nxt, nyt, nlevs, nxr, nyr, outvars, readnml, readcsv
-  use init_mod   , only : wgtsdir, griddir, ftype, fsrc, fdst, input_file, angvar
-  use init_mod   , only : do_ocnprep, debug, logunit
-  use arrays_mod , only : b2d, b3d, rgb2d, rgb3d, dstlon, dstlat, setup_packing
-  use arrays_mod , only : nbilin2d, nbilin3d, bilin2d, bilin3d
-  use utils_mod  , only : getfield, packarrays, remap, dumpnc, nf90_err
-  use utils_mod  , only : createRH, remapRH, ChkErr
+  use init_mod,       only : nxt, nyt, nlevs, nxr, nyr, outvars, readnml, readcsv
+  use init_mod,       only : wgtsdir, griddir, ftype, fsrc, fdst, input_file, angvar
+  use init_mod,       only : do_ocnprep, debug, logunit
+  use arrays_mod,     only : b2d, b3d, rgb2d, rgb3d, dstlon, dstlat, setup_packing
+  use arrays_mod,     only : nbilin2d, nbilin3d, bilin2d, bilin3d
+  use utils_mod,      only : getfield, packarrays, remap, dumpnc, nf90_err
+  use esmf_utils_mod, only : createRH, remapRH, ChkErr
 
   implicit none
 
