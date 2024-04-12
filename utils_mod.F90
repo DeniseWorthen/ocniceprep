@@ -1,6 +1,5 @@
 module utils_mod
 
-  use ESMF
   use netcdf
   use init_mod, only : debug, logunit, vardefs, fsrc
 
@@ -8,29 +7,34 @@ module utils_mod
 
   private
 
-  type(ESMF_RouteHandle) :: rh
-  type(ESMF_Mesh)        :: meshsrc, meshdst
-  type(ESMF_Field)       :: fldsrc, flddst
-
   interface getfield
-     module procedure getfield2d
-     module procedure getfield3d
+     module procedure getfield2d_R4
+     module procedure getfield3d_R4
+     module procedure getfield2d_R8
+     module procedure getfield3d_R8
   end interface getfield
 
   interface packarrays
-     module procedure packarrays2d
-     module procedure packarrays3d
+     module procedure packarrays2d_R4
+     module procedure packarrays3d_R4
+     module procedure packarrays2d_R8
+     module procedure packarrays3d_R8
   end interface packarrays
 
   interface getvecpair
-     module procedure getvecpair2d
-     module procedure getvecpair3d
+     module procedure getvecpair2d_R4
+     module procedure getvecpair3d_R4
+     module procedure getvecpair2d_R8
+     module procedure getvecpair3d_R8
   end interface getvecpair
 
   interface remap
-     module procedure remap1d
-     module procedure remap2d
-     module procedure remap3d
+     module procedure remap1d_R4
+     module procedure remap2d_R4
+     module procedure remap3d_R4
+     module procedure remap1d_R8
+     module procedure remap2d_R8
+     module procedure remap3d_R8
   end interface remap
 
   interface remapRH
@@ -39,126 +43,27 @@ module utils_mod
   end interface remapRH
 
   interface dumpnc
-     module procedure dumpnc1d
-     module procedure dumpnc2d
-     module procedure dumpnc3d
-     module procedure dumpnc3dk
+     module procedure dumpnc1d_R4
+     module procedure dumpnc2d_R4
+     module procedure dumpnc3d_R4
+     module procedure dumpnc3dk_R4
+     module procedure dumpnc1d_R8
+     module procedure dumpnc2d_R8
+     module procedure dumpnc3d_R8
+     module procedure dumpnc3dk_R8
   end interface dumpnc
 
   public getfield
   public packarrays
-  public dumpnc
   public remap
+  public dumpnc
   public nf90_err
-  public createRH
-  public remapRH
-  public ChkErr
-
-  character(len=*), parameter :: u_FILE_u = &
-       __FILE__
 
 contains
   !----------------------------------------------------------
-  ! create a RH
+  ! pack 2D R8 fields into arrays by mapping type
   !----------------------------------------------------------
-  subroutine createRH(srcmeshfile, dstmeshfile,rc)
-
-    character(len=*), intent(in)    :: srcmeshfile, dstmeshfile
-    integer,          intent(inout) :: rc
-
-    ! local variables
-    real(kind=8) , pointer  :: srcptr(:), dstptr(:)
-
-    meshsrc = ESMF_MeshCreate(filename=trim(srcmeshfile), fileformat=ESMF_FILEFORMAT_ESMFMESH, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    fldsrc = ESMF_FieldCreate(meshsrc, ESMF_TYPEKIND_R8, name='mshsrc', meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
-    meshdst = ESMF_MeshCreate(filename=trim(dstmeshfile), fileformat=ESMF_FILEFORMAT_ESMFMESH, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    flddst = ESMF_FieldCreate(meshdst, ESMF_TYPEKIND_R8, name='mshdst', meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
-    call ESMF_FieldRegridStore(fldsrc, flddst, routehandle=rh, &
-         srcMaskValues=(/0/),                                  &
-         dstMaskValues=(/0/),                                  &
-         regridmethod=ESMF_REGRIDMETHOD_BILINEAR,              &
-         extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_STOD,          &
-         polemethod=ESMF_POLEMETHOD_ALLAVG,                    &
-         ignoreDegenerate=.true.,                              &
-         !dstStatusField=dststatusfield,                       &
-         unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
-  end subroutine createRH
-
-  !----------------------------------------------------------
-  ! remap a packed field of nflds
-  !----------------------------------------------------------
-  subroutine remapRH2d(src_field,dst_field)
-
-    real(kind=8), intent(in)  :: src_field(:,:)
-    real(kind=8), intent(out) :: dst_field(:,:)
-
-    integer               :: rc
-    real(kind=8), pointer :: srcptr(:,:), dstptr(:,:)
-    character(len=20)     :: subname = 'remap2dRH'
-
-    if (debug)write(logunit,'(a)')'enter '//trim(subname)
-
-    fldsrc = ESMF_FieldCreate(meshsrc, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, &
-         ungriddedLbound=(/1/), ungriddedUbound=(/size(src_field,2)/),       &
-         gridToFieldMap=(/1/), rc=rc)
-    if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    flddst = ESMF_FieldCreate(meshdst, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, &
-         ungriddedLbound=(/1/), ungriddedUbound=(/size(dst_field,2)/),       &
-         gridToFieldMap=(/1/), rc=rc)
-    if (ChkErr(rc,__LINE__,u_FILE_u)) return
-
-    call ESMF_FieldGet(fldsrc, farrayptr=srcptr, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) return
-    call ESMF_FieldGet(flddst, farrayptr=dstptr, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) return
-    dstptr = 0.0
-    srcptr = src_field
-
-    print '(a,2g14.7)','src min/max ',minval(srcptr), maxval(srcptr)
-    call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, rc=rc)
-    if (ChkErr(rc,__LINE__,u_FILE_u)) return
-
-    print '(a,2g14.7)','dst min/max ',minval(dstptr), maxval(dstptr)
-    dst_field = dstptr
-
-    call ESMF_FieldDestroy(fdsrc)
-    call EMSF_FieldDestroy(flddst)
-
-  end subroutine remapRH2d
-
-  subroutine remapRH3d(src_field,dst_field)
-
-    real(kind=8), intent(in)  :: src_field(:,:,:)
-    real(kind=8), intent(out) :: dst_field(:,:,:)
-
-    integer               :: rc
-    real(kind=8), pointer :: srcptr(:,:,:), dstptr(:,:,:)
-    character(len=20)     :: subname = 'remap3dRH'
-
-    if (debug)write(logunit,'(a)')'enter '//trim(subname)
-
-    fldsrc = ESMF_FieldCreate(meshsrc, farrayPtr=srcptr, meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    flddst = ESMF_FieldCreate(meshdst, farrayPtr=dstptr, meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
-    call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
-  end subroutine remapRH3d
-
-  !----------------------------------------------------------
-  ! pack 2D fields into arrays by mapping type
-  !----------------------------------------------------------
-  subroutine packarrays2d(filesrc, wgtsdir, cosrot, sinrot, vars, dims, nflds, fields)
+  subroutine packarrays2d_R8(filesrc, wgtsdir, cosrot, sinrot, vars, dims, nflds, fields)
 
     character(len=*), intent(in)  :: filesrc,wgtsdir
     real(kind=8),     intent(in)  :: cosrot(:),sinrot(:)
@@ -170,10 +75,9 @@ contains
     ! local variables
     integer                   :: n, nn
     real(kind=8), allocatable :: vecpair(:,:)
-    character(len=20)         :: subname = 'packarrays2d'
+    character(len=20)         :: subname = 'packarrays2d_R8'
 
     fields=0.0
-
     if (debug)write(logunit,'(a)')'enter '//trim(subname)
     ! obtain vector pairs
     do n = 1,nflds
@@ -205,12 +109,12 @@ contains
     end do
 
     if (debug)write(logunit,'(a)')'exit '//trim(subname)
-  end subroutine packarrays2d
+  end subroutine packarrays2d_R8
 
   !----------------------------------------------------------
-  ! pack 3D fields into arrays by mapping type
+  ! pack 3D R8 fields into arrays by mapping type
   !----------------------------------------------------------
-  subroutine packarrays3d(filesrc, wgtsdir, cosrot, sinrot, vars, dims, nflds, fields)
+  subroutine packarrays3d_R8(filesrc, wgtsdir, cosrot, sinrot, vars, dims, nflds, fields)
 
     character(len=*), intent(in)  :: filesrc,wgtsdir
     real(kind=8),     intent(in)  :: cosrot(:),sinrot(:)
@@ -222,7 +126,7 @@ contains
     ! local variables
     integer                   :: n, nn
     real(kind=8), allocatable :: vecpair(:,:,:)
-    character(len=20)         :: subname = 'packarrays3d'
+    character(len=20)         :: subname = 'packarrays3d_R8'
 
     fields=0.0
 
@@ -253,12 +157,12 @@ contains
     end do
 
     if (debug)write(logunit,'(a)')'exit '//trim(subname)
-  end subroutine packarrays3d
+  end subroutine packarrays3d_R8
 
   !----------------------------------------------------------
-  ! obtain 2D vector pairs mapped to Ct and rotated to EW
+  ! obtain 2D R8 vector pairs mapped to Ct and rotated to EW
   !----------------------------------------------------------
-  subroutine getvecpair2d(fname, wdir, cosrot, sinrot, vname1, vgrid1, &
+  subroutine getvecpair2d_R8(fname, wdir, cosrot, sinrot, vname1, vgrid1, &
        vname2, vgrid2, dims, vecpair)
 
     character(len=*), intent(in)  :: fname
@@ -272,7 +176,7 @@ contains
     integer :: ii
     real(kind=8), dimension(dims(1)*dims(2)) :: urot, vrot
     character(len=240) :: wgtsfile
-    character(len=20) :: subname = 'getvecpair2d'
+    character(len=20) :: subname = 'getvecpair2d_R8'
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)
 
@@ -292,12 +196,12 @@ contains
     vecpair(:,2) = vrot(:)
 
     if (debug) write(logunit,'(a)')'exit '//trim(subname)
-  end subroutine getvecpair2d
+  end subroutine getvecpair2d_R8
 
   !----------------------------------------------------------
-  ! obtain 3D vector pairs, mapped to Ct and rotated to EW
+  ! obtain 3D R8 vector pairs, mapped to Ct and rotated to EW
   !----------------------------------------------------------
-  subroutine getvecpair3d(fname, wdir, cosrot, sinrot, vname1, vgrid1, &
+  subroutine getvecpair3d_R8(fname, wdir, cosrot, sinrot, vname1, vgrid1, &
        vname2, vgrid2, dims, vecpair)
 
     character(len=*), intent(in)  :: fname
@@ -311,7 +215,7 @@ contains
     integer :: ii,k
     real(kind=8), dimension(dims(1)*dims(2)) :: urot, vrot
     character(len=240) :: wgtsfile
-    character(len=20)  :: subname = 'getvecpair3d'
+    character(len=20)  :: subname = 'getvecpair3d_R8'
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)
 
@@ -331,35 +235,49 @@ contains
     end do
 
     if (debug) write(logunit,'(a)')'exit '//trim(subname)
-  end subroutine getvecpair3d
+  end subroutine getvecpair3d_R8
 
   !----------------------------------------------------------
-  ! obtain a 2D field and return a 1-D vector array
+  ! obtain a R8 2D field and return a R8 1-D vector array
   !----------------------------------------------------------
-  subroutine getfield2d(fname, vname, dims, field, wgts)
+  subroutine getfield2d_R8(fname, vname, dims, field, wgts, chkfill)
 
     character(len=*),           intent(in)  :: fname, vname
     integer,                    intent(in)  :: dims(:)
     real(kind=8),               intent(out) :: field(:)
     character(len=*), optional, intent(in)  :: wgts
+    logical,          optional, intent(in)  :: chkfill
 
     ! local variable
+    logical                   :: lchk
     integer                   :: ncid, varid, rc
+    real(kind=8)              :: fval
     real(kind=8), allocatable :: a2d(:,:)
     real(kind=8), allocatable :: atmp(:)
-    character(len=20)         :: subname = 'getfield2d'
+    character(len=20)         :: subname = 'getfield2d_R4'
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)//' variable '//vname
 
     allocate(a2d(dims(1),dims(2))); a2d = 0.0
     allocate(atmp(dims(1)*dims(2))); atmp = 0.0
 
+    lchk = .false.
+    if (present(chkfill)) then
+       if (chkfill) lchk = chkfill
+    end if
+
     call nf90_err(nf90_open(fname, nf90_nowrite, ncid), 'nf90_open: '//fname)
     call nf90_err(nf90_inq_varid(ncid, vname, varid), 'get variable ID: '//vname)
     call nf90_err(nf90_get_var(ncid, varid, a2d), 'get variable: '//vname)
+    if (lchk) then
+       call nf90_err(nf90_get_att(ncid, varid, '_FillValue', fval), 'get attribute FillValue: '//vname)
+    end if
     call nf90_err(nf90_close(ncid), 'close: '//fname)
 
     atmp(:) = reshape(a2d, (/dims(1)*dims(2)/))
+    if (lchk) then
+       where(atmp .eq. fval)atmp = 0.0
+    end if
     if(present(wgts)) then
        call remap(trim(wgts), src_field=atmp, dst_field=field)
     else
@@ -367,35 +285,50 @@ contains
     end if
 
     if (debug) write(logunit,'(a)')'exit '//trim(subname)//' variable '//vname
-  end subroutine getfield2d
+  end subroutine getfield2d_R8
 
   !----------------------------------------------------------
-  ! obtain a 3D field and return a 2-D vector array
+  ! obtain a R8 3D field and return a R8 2-D vector array
   !----------------------------------------------------------
-  subroutine getfield3d(fname, vname, dims, field, wgts)
+  subroutine getfield3d_R8(fname, vname, dims, field, wgts, chkfill)
 
     character(len=*),           intent(in)  :: fname, vname
     integer,                    intent(in)  :: dims(:)
     real(kind=8),               intent(out) :: field(:,:)
     character(len=*), optional, intent(in)  :: wgts
+    logical,          optional, intent(in)  :: chkfill
 
     ! local variable
+    logical                   :: lchk
     integer                   :: ncid, varid, rc
+    real(kind=8)              :: fval
     real(kind=8), allocatable :: a3d(:,:,:)
     real(kind=8), allocatable :: atmp(:,:)
-    character(len=20)         :: subname = 'getfield3d'
+    character(len=20)         :: subname = 'getfield3d_R8'
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)//' variable '//vname
 
     allocate(a3d(dims(1),dims(2),dims(3))); a3d = 0.0
     allocate(atmp(dims(1)*dims(2),dims(3))); atmp = 0.0
 
+    lchk = .false.
+    if (present(chkfill)) then
+       if (chkfill) lchk = chkfill
+    end if
+
     call nf90_err(nf90_open(fname, nf90_nowrite, ncid), 'nf90_open: '//fname)
     call nf90_err(nf90_inq_varid(ncid, vname, varid), 'get variable ID: '//vname)
     call nf90_err(nf90_get_var(ncid, varid, a3d), 'get variable: '//vname)
+    if (lchk) then
+       call nf90_err(nf90_get_att(ncid, varid, '_FillValue', fval), 'get attribute FillValue: '//vname)
+    end if
     call nf90_err(nf90_close(ncid), 'close: '//fname)
 
     atmp(:,:) = reshape(a3d, (/dims(1)*dims(2),dims(3)/))
+    if (lchk) then
+       where(atmp .eq. fval)atmp = 0.0
+    end if
+    where(atmp .eq. fval)atmp = 0.0
     if(present(wgts)) then
        call remap(trim(wgts), dim2=dims(3), src_field=atmp, dst_field=field)
     else
@@ -403,12 +336,12 @@ contains
     end if
 
     if (debug) write(logunit,'(a)')'exit '//trim(subname)//' variable '//vname
-  end subroutine getfield3d
+  end subroutine getfield3d_R8
 
   !----------------------------------------------------------
-  ! remap a 1-D vector array
+  ! remap a R8 1-D vector array
   !----------------------------------------------------------
-  subroutine remap1d(fname, src_field, dst_field)
+  subroutine remap1d_R8(fname, src_field, dst_field)
 
     character(len=*), intent(in)  :: fname
     real(kind=8),     intent(in)  :: src_field(:)
@@ -420,7 +353,7 @@ contains
     integer :: n_a, n_b, n_s
     integer(kind=4), allocatable, dimension(:) :: col, row
     real(kind=8),    allocatable, dimension(:) :: S
-    character(len=20) :: subname = 'remap1d'
+    character(len=20) :: subname = 'remap1d_R8'
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)
 
@@ -452,12 +385,12 @@ contains
     enddo
 
     if (debug) write(logunit,'(a)')'exit '//trim(subname)
-  end subroutine remap1d
+  end subroutine remap1d_R8
 
   !----------------------------------------------------------
-  ! remap a packed field of either nflds or nlevs
+  ! remap a R8 packed field of either nflds or nlevs
   !----------------------------------------------------------
-  subroutine remap2d(fname, dim2, src_field, dst_field)
+  subroutine remap2d_R8(fname, dim2, src_field, dst_field)
 
     character(len=*), intent(in)  :: fname
     integer,          intent(in)  :: dim2
@@ -470,7 +403,7 @@ contains
     integer :: n_a, n_b, n_s
     integer(kind=4), allocatable, dimension(:) :: col, row
     real(kind=8),    allocatable, dimension(:) :: S
-    character(len=20) :: subname = 'remap2d'
+    character(len=20) :: subname = 'remap2d_R8'
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)//' weights = '//trim(fname)
 
@@ -502,12 +435,12 @@ contains
     enddo
 
     if (debug) write(logunit,'(a)')'exit '//trim(subname)
-  end subroutine remap2d
+  end subroutine remap2d_R8
 
   !----------------------------------------------------------
-  ! remap a field packed array of nk levels and nflds fields
+  ! remap a R8 field packed array of nk levels and nflds fields
   !----------------------------------------------------------
-  subroutine remap3d(fname, nk, nflds, src_field, dst_field)
+  subroutine remap3d_R8(fname, nk, nflds, src_field, dst_field)
 
     character(len=*), intent(in)  :: fname
     integer,          intent(in)  :: nk, nflds
@@ -520,7 +453,7 @@ contains
     integer :: n_a, n_b, n_s
     integer(kind=4), allocatable, dimension(:) :: col, row
     real(kind=8),    allocatable, dimension(:) :: S
-    character(len=20) :: subname = 'remap3d'
+    character(len=20) :: subname = 'remap3d_R8'
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)//' weights = '//trim(fname)
 
@@ -552,12 +485,12 @@ contains
     enddo
 
     if (debug) write(logunit,'(a)')'exit '//trim(subname)
-  end subroutine remap3d
+  end subroutine remap3d_R8
 
   !----------------------------------------------------------
-  ! write a bare netcdf file of a 2D packed field
+  ! write a bare netcdf file of a 2D packed R8 field
   !----------------------------------------------------------
-  subroutine dumpnc2d(fname, vname, dims, nflds, field)
+  subroutine dumpnc2d_R8(fname, vname, dims, nflds, field)
 
     character(len=*), intent(in) :: fname, vname
     integer,          intent(in) :: dims(:)
@@ -567,7 +500,7 @@ contains
     ! local variable
     integer                   :: ncid, varid, rc, idimid, jdimid, fdimid
     real(kind=8), allocatable :: a3d(:,:,:)
-    character(len=20)         :: subname = 'dumpnc2d'
+    character(len=20)         :: subname = 'dumpnc2d_R8'
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)//' variable '//vname
     allocate(a3d(dims(1),dims(2),nflds)); a3d = 0.0
@@ -576,7 +509,7 @@ contains
     call nf90_err(nf90_def_dim(ncid, 'nx', dims(1), idimid), 'define dimension: nx')
     call nf90_err(nf90_def_dim(ncid, 'ny', dims(2), jdimid), 'define dimension: ny')
     call nf90_err(nf90_def_dim(ncid, 'nf', nflds,   fdimid), 'define dimension: nf')
-    call nf90_err(nf90_def_var(ncid, vname, nf90_float, (/idimid,jdimid,fdimid/), varid), 'define variable: '//vname)
+    call nf90_err(nf90_def_var(ncid, vname, nf90_double, (/idimid,jdimid,fdimid/), varid), 'define variable: '//vname)
     call nf90_err(nf90_enddef(ncid), 'nf90_enddef: '//fname)
 
     a3d(:,:,:) =  reshape(field(1:dims(1)*dims(2),1:nflds), (/dims(1),dims(2),nflds/))
@@ -584,12 +517,12 @@ contains
     call nf90_err(nf90_close(ncid), 'close: '//fname)
 
     if (debug)write(logunit,'(a)')'exit '//trim(subname)//' variable '//vname
-  end subroutine dumpnc2d
+  end subroutine dumpnc2d_R8
 
   !----------------------------------------------------------
-  ! write a bare netcdf file of a packed 3D field
+  ! write a bare netcdf file of a packed 3D R8 field
   !----------------------------------------------------------
-  subroutine dumpnc3d(fname, vname, dims, nk, nflds, field)
+  subroutine dumpnc3d_R8(fname, vname, dims, nk, nflds, field)
 
     character(len=*), intent(in) :: fname, vname
     integer,          intent(in) :: dims(:)
@@ -599,7 +532,7 @@ contains
     ! local variable
     integer :: n, ncid, varid, rc, idimid, jdimid, kdimid, fdimid
     real(kind=8), allocatable :: a4d(:,:,:,:)
-    character(len=20) :: subname = 'dumpnc3d'
+    character(len=20) :: subname = 'dumpnc3d_R8'
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)//' variable '//vname
     allocate(a4d(dims(1),dims(2),dims(3),nflds)); a4d = 0.0
@@ -609,7 +542,7 @@ contains
     call nf90_err(nf90_def_dim(ncid, 'ny', dims(2), jdimid), 'define dimension: ny')
     call nf90_err(nf90_def_dim(ncid, 'nk', dims(3), kdimid), 'define dimension: nk')
     call nf90_err(nf90_def_dim(ncid, 'nf', nflds,   fdimid), 'define dimension: nf')
-    call nf90_err(nf90_def_var(ncid, vname, nf90_float, (/idimid,jdimid,kdimid,fdimid/), varid), 'define variable: '//vname)
+    call nf90_err(nf90_def_var(ncid, vname, nf90_double, (/idimid,jdimid,kdimid,fdimid/), varid), 'define variable: '//vname)
     call nf90_err(nf90_enddef(ncid), 'nf90_enddef: '//fname)
 
     do n = 1,nflds
@@ -619,12 +552,12 @@ contains
     call nf90_err(nf90_close(ncid), 'close: '//fname)
 
     if (debug)write(logunit,'(a)')'exit '//trim(subname)//' variable '//vname
-  end subroutine dumpnc3d
+  end subroutine dumpnc3d_R8
 
   !----------------------------------------------------------
-  ! write a bare netcdf file of an unpacked 3D field
+  ! write a bare netcdf file of an unpacked 3D R8 field
   !----------------------------------------------------------
-  subroutine dumpnc3dk(fname, vname, dims, field)
+  subroutine dumpnc3dk_R8(fname, vname, dims, field)
 
     character(len=*), intent(in) :: fname, vname
     integer,          intent(in) :: dims(:)
@@ -633,7 +566,7 @@ contains
     ! local variable
     integer                   :: ncid, varid, rc, idimid, jdimid, kdimid
     real(kind=8), allocatable :: a3d(:,:,:)
-    character(len=20)         :: subname = 'dumpnc3dk'
+    character(len=20)         :: subname = 'dumpnc3dk_R8'
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)//' variable '//vname
     allocate(a3d(dims(1),dims(2),dims(3))); a3d = 0.0
@@ -642,7 +575,7 @@ contains
     call nf90_err(nf90_def_dim(ncid, 'nx', dims(1), idimid), 'define dimension: nx')
     call nf90_err(nf90_def_dim(ncid, 'ny', dims(2), jdimid), 'define dimension: ny')
     call nf90_err(nf90_def_dim(ncid, 'nk', dims(3), kdimid), 'define dimension: nk')
-    call nf90_err(nf90_def_var(ncid, vname, nf90_float, (/idimid,jdimid,kdimid/), varid), 'define variable: '//vname)
+    call nf90_err(nf90_def_var(ncid, vname, nf90_double, (/idimid,jdimid,kdimid/), varid), 'define variable: '//vname)
     call nf90_err(nf90_enddef(ncid), 'nf90_enddef: '//fname)
 
     a3d(:,:,:) =  reshape(field(1:dims(1)*dims(2),1:dims(3)), (/dims(1),dims(2),dims(3)/))
@@ -651,12 +584,12 @@ contains
 
     if (debug)write(logunit,'(a)')'exit '//trim(subname)//' variable '//vname
 
-  end subroutine dumpnc3dk
+  end subroutine dumpnc3dk_R8
 
   !----------------------------------------------------------
-  ! write a bare netcdf file of an unpacked 2D field
+  ! write a bare netcdf file of an unpacked 2D R8 field
   !----------------------------------------------------------
-  subroutine dumpnc1d(fname, vname, dims, field)
+  subroutine dumpnc1d_R8(fname, vname, dims, field)
 
     character(len=*), intent(in) :: fname, vname
     integer,          intent(in) :: dims(:)
@@ -665,7 +598,7 @@ contains
     ! local variable
     integer                   :: ncid, varid, rc, idimid, jdimid
     real(kind=8), allocatable :: a2d(:,:)
-    character(len=20)         :: subname = 'dumpnc1d'
+    character(len=20)         :: subname = 'dumpnc1d_R8'
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)//' variable '//vname
     allocate(a2d(dims(1),dims(2))); a2d = 0.0
@@ -673,7 +606,7 @@ contains
     call nf90_err(nf90_create(trim(fname), nf90_clobber, ncid), 'nf90_create: '//fname)
     call nf90_err(nf90_def_dim(ncid, 'nx', dims(1), idimid), 'define dimension: nx')
     call nf90_err(nf90_def_dim(ncid, 'ny', dims(2), jdimid), 'define dimension: ny')
-    call nf90_err(nf90_def_var(ncid, vname, nf90_float, (/idimid,jdimid/), varid), 'define variable: '//vname)
+    call nf90_err(nf90_def_var(ncid, vname, nf90_double, (/idimid,jdimid/), varid), 'define variable: '//vname)
     call nf90_err(nf90_enddef(ncid), 'nf90_enddef: '//fname)
 
     a2d(:,:) =  reshape(field(1:dims(1)*dims(2)), (/dims(1),dims(2)/))
@@ -682,7 +615,7 @@ contains
 
     if (debug)write(logunit,'(a)')'exit '//trim(subname)//' variable '//vname
 
-  end subroutine dumpnc1d
+  end subroutine dumpnc1d_R8
 
   !----------------------------------------------------------
   ! handle netcdf errors
@@ -700,19 +633,4 @@ contains
       stop 99
     end if
   end subroutine nf90_err
-
-  !----------------------------------------------------------
-  ! handle ESMF errors
-  !----------------------------------------------------------
-  logical function ChkErr(rc, line, file)
-    integer, intent(in) :: rc            !< return code to check
-    integer, intent(in) :: line          !< Integer source line number
-    character(len=*), intent(in) :: file !< User-provided source file name
-    integer :: lrc
-    ChkErr = .false.
-    lrc = rc
-    if (ESMF_LogFoundError(rcToCheck=lrc, msg=ESMF_LOGERR_PASSTHRU, line=line, file=file)) then
-       ChkErr = .true.
-    endif
-  end function ChkErr
 end module utils_mod
