@@ -2,13 +2,13 @@ program ocniceprep
 
   use ESMF
   use netcdf
-  use init_mod,       only : nxt, nyt, nlevs, nxr, nyr, outvars, readnml, readcsv
-  use init_mod,       only : wgtsdir, griddir, ftype, fsrc, fdst, input_file, angvar
-  use init_mod,       only : do_ocnprep, debug, logunit
-  use arrays_mod,     only : b2d, b3d, rgb2d, rgb3d, dstlon, dstlat, setup_packing
-  use arrays_mod,     only : nbilin2d, nbilin3d, bilin2d, bilin3d
-  use utils_mod,      only : getfield, packarrays, remap, dumpnc, nf90_err
-  use esmf_utils_mod, only : createRH, remapRH, ChkErr
+  use init_mod   , only : nxt, nyt, nlevs, nxr, nyr, outvars, readnml, readcsv
+  use init_mod   , only : wgtsdir, griddir, ftype, fsrc, fdst, input_file, angvar
+  use init_mod   , only : do_ocnprep, debug, logunit
+  use arrays_mod , only : b2d, b3d, rgb2d, rgb3d, dstlon, dstlat, setup_packing
+  use arrays_mod , only : nbilin2d, nbilin3d, bilin2d, bilin3d
+  use utils_mod  , only : getfield, packarrays, remap, dumpnc, nf90_err
+  use utils_mod  , only : createRH, remapRH, ChkErr, rotremap
 
   implicit none
 
@@ -41,6 +41,8 @@ program ocniceprep
   integer :: n,nn,rc,ncid,varid
   integer :: idimid,jdimid,kdimid,edimid,timid
   integer :: idx1,idx2,idx3
+  ! debug
+  integer :: i,j
 
   character(len=*), parameter :: u_FILE_u = &
        __FILE__
@@ -62,6 +64,14 @@ program ocniceprep
   call readnml
   call readcsv(nvalid)
 
+  ! nn = 0
+  ! do j = 1,nyr
+  !    do i = 1,nxr
+  !       nn = nn+1
+  !       if(j.eq.nyr)print *,i,nn
+  !    end do
+  ! end do
+  ! i=114945 : (105,320)
   ! --------------------------------------------------------
   ! create a regrid RH from source to destination
   ! --------------------------------------------------------
@@ -74,6 +84,13 @@ program ocniceprep
   ! --------------------------------------------------------
   ! read the master grid file and obtain the rotation angle
   ! on the source and destination grids
+  ! in ocnpost, anglet is retrieved from CICE's own history
+  ! file, here it is retrieved from the tripole grid file, which
+  ! has the opposite sense for anglet (same as MOM6).
+  ! the rotation formulas assume the same sense as MOM6, so
+  ! in ocnpost, this requires for cice that sinrot = -sin(anglet)
+  ! here, we need -sin(-anglet), which is sin(anglet), so no
+  ! sign change is required
   ! --------------------------------------------------------
 
   allocate(angsrc(nxt*nyt)); angsrc = 0.0
@@ -88,11 +105,6 @@ program ocniceprep
   call nf90_err(nf90_open(trim(gridfile), nf90_nowrite, ncid), 'open: '//trim(gridfile))
   call getfield(trim(gridfile), 'anglet', dims=(/nxr,nyr/), field=angdst)
   call nf90_err(nf90_close(ncid), 'close: '//trim(gridfile))
-  ! reverse direction for CICE
-  if (.not. do_ocnprep) then
-     angsrc = -angsrc
-     angdst = -angdst
-  end if
 
   ! --------------------------------------------------------
   ! get the 3rd (vertical or ncat) dimension
@@ -184,38 +196,59 @@ program ocniceprep
 
   !--------------------------------------------------------
   ! find the index of the vector pairs in the packed, regridded fields
-  ! rotate on Ct from IJ->EW and remap back to Bu
+  ! rotate on Ct from EW->IJ and remap back to native staggers
   !--------------------------------------------------------
 
-  allocate(tmp1d(1:nxr*nyr)); tmp1d = 0.0
-  wgtsfile = trim(wgtsdir)//fdst(3:5)//'/'//'tripole.'//trim(fdst)//'.Ct.to.Bu.bilinear.nc'
-  idx1 = 0; idx2 = 0
-  if (do_ocnprep) then
-  else
-     do n = 1,nbilin2d
-        if (len_trim(outvars(n)%var_pair) > 0 .and. idx1 .eq. 0) then
-           idx1 = n
-           idx2 = n+1
-        end if
-     end do
-     print *,trim(outvars(idx1)%var_name),trim(outvars(idx2)%var_name)
-     do nn = 1,nxr*nyr
-        urot = rgb2d(nn,idx1)*cos(angdst(nn)) + rgb2d(nn,idx2)*sin(angdst(nn))
-        vrot = rgb2d(nn,idx2)*cos(angdst(nn)) - rgb2d(nn,idx1)*sin(angdst(nn))
-        rgb2d(nn,idx1) = urot
-        rgb2d(nn,idx2) = vrot
-     end do
-     call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin2d.Ct.ij.nc', 'rgbilin2d', dims=(/nxr,nyr/),       &
-          nflds=nbilin2d, field=rgb2d)
-
-     tmp1d(:) = rgb2d(:,idx1)
-     call remap(trim(wgtsfile), tmp1d, rgb2d(:,idx1))
-     tmp1d(:) = rgb2d(:,idx2)
-     call remap(trim(wgtsfile), tmp1d, rgb2d(:,idx2))
+  if (allocated(bilin2d)) then
+     call rotremap(trim(wgtsdir)//fdst(3:5)//'/', b2d, cos(angdst), sin(angdst), dims=(/nxr,nyr/), &
+          nflds=nbilin2d, fields=rgb2d)
 
      call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin2d.Bu.ij.nc', 'rgbilin2d', dims=(/nxr,nyr/),       &
           nflds=nbilin2d, field=rgb2d)
   end if
+     !allocate(tmp1d(1:nxr*nyr)); tmp1d = 0.0
+     !wgtsfile = trim(wgtsdir)//fdst(3:5)//'/'//'tripole.'//trim(fdst)//'.Ct.to.Bu.bilinear.nc'
+
+
+  ! idx1 = 0; idx2 = 0
+  ! if (do_ocnprep) then
+  ! else
+  !    do n = 1,nbilin2d
+  !       if (len_trim(outvars(n)%var_pair) > 0 .and. idx1 .eq. 0) then
+  !          idx1 = n
+  !          idx2 = n+1
+  !       end if
+  !    end do
+  !    print *,trim(outvars(idx1)%var_name),trim(outvars(idx2)%var_name)
+  !    do n = 1,nxr*nyr
+  !       urot = rgb2d(n,idx1)*cos(angdst(n)) - rgb2d(n,idx2)*sin(angdst(n))
+  !       vrot = rgb2d(n,idx2)*cos(angdst(n)) + rgb2d(n,idx1)*sin(angdst(n))
+  !       rgb2d(n,idx1) = urot
+  !       rgb2d(n,idx2) = vrot
+  !    end do
+  !    call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin2d.Ct.ij.nc', 'rgbilin2d', dims=(/nxr,nyr/),       &
+  !         nflds=nbilin2d, field=rgb2d)
+
+     !print *,'X0 ',rgb2d(114945,idx1),rgb2d(114945,idx2)
+
+     !tmp2d(:,1) = rgb2d(:,idx1)
+     !tmp2d(:,2) = rgb2d(:,idx2)
+     !call remap(trim(wgtsfile), dim2=2, src_field=tmp2d, dst_field=tmp2d)
+     !tmp1d(:) = rgb2d(:,idx1)
+     !call remap(trim(wgtsfile), src_field=rgb2d(:,idx1), dst_field=tmp1d)
+     !rgb2d(:,idx1) = tmp1d(:)
+
+     !tmp1d(:) = rgb2d(:,idx2)
+     !call remap(trim(wgtsfile), src_field=rgb2d(:,idx2), dst_field=tmp1d)
+     !rgb2d(:,idx2) = tmp1d(:)
+     !call remap(trim(wgtsfile), src_field=rgb2d(:,idx1), dst_field=tmp1d)
+     !rgb2d(:,idx1) = tmp1d(:)
+     !call remap(trim(wgtsfile), src_field=rgb2d(:,idx2), dst_field=rgb2d(:,idx2))
+     !print *,'X1 ',rgb2d(114945,idx1),rgb2d(114945,idx2)
+
+     !call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin2d.Bu.ij.nc', 'rgbilin2d', dims=(/nxr,nyr/),       &
+     !     nflds=nbilin2d, field=rgb2d)
+  !end if
 
   ! do n=1,nbilin2d or nbilin3d
   ! if name=uvel then get the uvel,vvel
