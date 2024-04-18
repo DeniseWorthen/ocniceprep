@@ -12,7 +12,7 @@ module init_mod
      character(len= 20)   :: units             !< A variable's unit
      character(len= 20)   :: var_remapmethod   !< A variable's mapping method
      integer              :: var_dimen         !< A variable's dimensionality
-     character(len=  4)   :: var_grid          !< A variable's input grid location; all output locations are on cell centers
+     character(len=  4)   :: var_grid          !< A variable's input grid location
      character(len= 20)   :: var_pair          !< A variable's pair
      character(len=  4)   :: var_pair_grid     !< A pair variable grid
      real                 :: var_fillvalue     !< A variable's fillvalue

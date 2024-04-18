@@ -50,11 +50,12 @@ include $(ESMFMKFILE)
 
 
 # -----------------------------------------------------------------------------
-ictest: ocniceprep.o utils_mod.o utils_esmf_mod.o init_mod.o arrays_mod.o
+ictest: ocniceprep.o utils_mod.o utils_esmf_mod.o init_mod.o arrays_mod.o restarts_mod.o
 	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) -o $@ $^ $(ESMF_F90ESMFLINKLIBS)
 
 # module dependencies:
-ocniceprep.o: utils_mod.o utils_esmf_mod.o init_mod.o arrays_mod.o
+ocniceprep.o: utils_mod.o utils_esmf_mod.o init_mod.o arrays_mod.o restarts_mod.o
+restarts_mod.o: utils_mod.o init_mod.o arrays_mod.o
 utils_mod.o: init_mod.o
 utils_esmf_mod.o: init_mod.o
 init_mod.o:
