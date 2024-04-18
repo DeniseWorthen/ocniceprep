@@ -181,8 +181,9 @@ contains
   !----------------------------------------------------------
   ! rotate nlevs vectors from EW->IJ and map back to native staggers
   !----------------------------------------------------------
-  subroutine rotremap3d(vars, cosrot, sinrot, dims, nflds, fields)
+  subroutine rotremap3d(wdir, vars, cosrot, sinrot, dims, nflds, fields)
 
+    character(len=*), intent(in)    :: wdir
     real(kind=8),     intent(in)    :: cosrot(:),sinrot(:)
     type(vardefs),    intent(in)    :: vars(:)
     integer,          intent(in)    :: dims(:)
