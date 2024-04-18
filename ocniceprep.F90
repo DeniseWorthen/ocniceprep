@@ -164,7 +164,9 @@ program ocniceprep
      call packarrays(trim(input_file), trim(wgtsdir)//fsrc(3:5)//'/', cos(angsrc), sin(angsrc),         &
           b3d, dims=(/nxt,nyt,nlevs/), nflds=nbilin3d, fields=bilin3d)
      rgb3d = 0.0
-     !call remapRH(src_field=bilin3d, dst_field=rgb3d)
+     do n = 1,nlevs
+        call remapRH(src_field=bilin3d(:,n,:), dst_field=rgb3d(:,n,:))
+     end do
 
      if (debug) then
         write(logunit,'(a)')'remap 3D fields bilinear with RH'
