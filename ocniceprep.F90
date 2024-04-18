@@ -2,13 +2,13 @@ program ocniceprep
 
   use ESMF
   use netcdf
-  use init_mod   , only : nxt, nyt, nlevs, nxr, nyr, outvars, readnml, readcsv
-  use init_mod   , only : wgtsdir, griddir, ftype, fsrc, fdst, input_file, angvar
-  use init_mod   , only : do_ocnprep, debug, logunit
-  use arrays_mod , only : b2d, b3d, rgb2d, rgb3d, dstlon, dstlat, setup_packing
-  use arrays_mod , only : nbilin2d, nbilin3d, bilin2d, bilin3d
-  use utils_mod  , only : getfield, packarrays, remap, dumpnc, nf90_err
-  use utils_mod  , only : createRH, remapRH, ChkErr, rotremap
+  use init_mod   ,     only : nxt, nyt, nlevs, nxr, nyr, outvars, readnml, readcsv
+  use init_mod   ,     only : wgtsdir, griddir, ftype, fsrc, fdst, input_file, angvar
+  use init_mod   ,     only : do_ocnprep, debug, logunit
+  use arrays_mod ,     only : b2d, b3d, rgb2d, rgb3d, dstlon, dstlat, setup_packing
+  use arrays_mod ,     only : nbilin2d, nbilin3d, bilin2d, bilin3d
+  use utils_mod  ,     only : getfield, packarrays, remap, dumpnc, nf90_err
+  use utils_esmf_mod , only : createRH, remapRH, ChkErr, rotremap
 
   implicit none
 
@@ -34,13 +34,10 @@ program ocniceprep
 
   character(len=120) :: mesh_src, mesh_dst
 
-  real(kind=8) :: urot, vrot
-  real(kind=8), allocatable :: tmp1d(:)
-
   integer :: nvalid
   integer :: n,nn,rc,ncid,varid
   integer :: idimid,jdimid,kdimid,edimid,timid
-  integer :: idx1,idx2,idx3
+  integer :: idx1,idx2
   ! debug
   integer :: i,j
 
@@ -206,61 +203,6 @@ program ocniceprep
      call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin2d.Bu.ij.nc', 'rgbilin2d', dims=(/nxr,nyr/),       &
           nflds=nbilin2d, field=rgb2d)
   end if
-     !allocate(tmp1d(1:nxr*nyr)); tmp1d = 0.0
-     !wgtsfile = trim(wgtsdir)//fdst(3:5)//'/'//'tripole.'//trim(fdst)//'.Ct.to.Bu.bilinear.nc'
-
-
-  ! idx1 = 0; idx2 = 0
-  ! if (do_ocnprep) then
-  ! else
-  !    do n = 1,nbilin2d
-  !       if (len_trim(outvars(n)%var_pair) > 0 .and. idx1 .eq. 0) then
-  !          idx1 = n
-  !          idx2 = n+1
-  !       end if
-  !    end do
-  !    print *,trim(outvars(idx1)%var_name),trim(outvars(idx2)%var_name)
-  !    do n = 1,nxr*nyr
-  !       urot = rgb2d(n,idx1)*cos(angdst(n)) - rgb2d(n,idx2)*sin(angdst(n))
-  !       vrot = rgb2d(n,idx2)*cos(angdst(n)) + rgb2d(n,idx1)*sin(angdst(n))
-  !       rgb2d(n,idx1) = urot
-  !       rgb2d(n,idx2) = vrot
-  !    end do
-  !    call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin2d.Ct.ij.nc', 'rgbilin2d', dims=(/nxr,nyr/),       &
-  !         nflds=nbilin2d, field=rgb2d)
-
-     !print *,'X0 ',rgb2d(114945,idx1),rgb2d(114945,idx2)
-
-     !tmp2d(:,1) = rgb2d(:,idx1)
-     !tmp2d(:,2) = rgb2d(:,idx2)
-     !call remap(trim(wgtsfile), dim2=2, src_field=tmp2d, dst_field=tmp2d)
-     !tmp1d(:) = rgb2d(:,idx1)
-     !call remap(trim(wgtsfile), src_field=rgb2d(:,idx1), dst_field=tmp1d)
-     !rgb2d(:,idx1) = tmp1d(:)
-
-     !tmp1d(:) = rgb2d(:,idx2)
-     !call remap(trim(wgtsfile), src_field=rgb2d(:,idx2), dst_field=tmp1d)
-     !rgb2d(:,idx2) = tmp1d(:)
-     !call remap(trim(wgtsfile), src_field=rgb2d(:,idx1), dst_field=tmp1d)
-     !rgb2d(:,idx1) = tmp1d(:)
-     !call remap(trim(wgtsfile), src_field=rgb2d(:,idx2), dst_field=rgb2d(:,idx2))
-     !print *,'X1 ',rgb2d(114945,idx1),rgb2d(114945,idx2)
-
-     !call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin2d.Bu.ij.nc', 'rgbilin2d', dims=(/nxr,nyr/),       &
-     !     nflds=nbilin2d, field=rgb2d)
-  !end if
-
-  ! do n=1,nbilin2d or nbilin3d
-  ! if name=uvel then get the uvel,vvel
-  ! rotate to IJ on Ct
-  ! re-stagger Ct->Bu
-  !do ii = 1,dstnx*dstny
-  !   urot = vecpairdst(ii,1)*cosrotdst(ii) + vecpairdst(ii,2)*sinrotdst(ii)
-  !   vrot = vecpairdst(ii,2)*cosrotdst(ii) - vecpairdst(ii,1)*sinrotdst(ii)
-  !   vecpairdst(ii,1) = urot
-  !   vecpairdst(ii,2) = vrot
-  !end do
-
 
 #ifdef test
   ! --------------------------------------------------------

@@ -1,6 +1,9 @@
 module utils_esmf_mod
 
   use ESMF
+  use netcdf
+  use init_mod  , only : debug, logunit, vardefs, fsrc, fdst, ftype, nxr, nyr
+  use utils_mod , only : dumpnc, remap
 
   implicit none
 
@@ -10,8 +13,19 @@ module utils_esmf_mod
   type(ESMF_Mesh)        :: meshsrc, meshdst
   type(ESMF_Field)       :: fldsrc, flddst
 
+  interface remapRH
+     module procedure remapRH2d
+     module procedure remapRH3d
+  end interface remapRH
+
+  interface rotremap
+     module procedure rotremap2d
+     module procedure rotremap3d
+  end interface rotremap
+
   public createRH
   public remapRH
+  public rotremap
   public ChkErr
 
   character(len=*), parameter :: u_FILE_u = &
@@ -88,9 +102,6 @@ contains
     print '(a,2g14.7)','dst min/max ',minval(dstptr), maxval(dstptr)
     dst_field = dstptr
 
-    call ESMF_FieldDestroy(fdsrc)
-    call EMSF_FieldDestroy(flddst)
-
   end subroutine remapRH2d
 
   !----------------------------------------------------------
@@ -116,6 +127,90 @@ contains
     if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
   end subroutine remapRH3d
+
+  !----------------------------------------------------------
+  ! rotate vectors from EW->IJ and map back to native staggers
+  !----------------------------------------------------------
+  subroutine rotremap2d(wdir, vars, cosrot, sinrot, dims, nflds, fields)
+
+    character(len=*), intent(in)    :: wdir
+    real(kind=8),     intent(in)    :: cosrot(:),sinrot(:)
+    type(vardefs),    intent(in)    :: vars(:)
+    integer,          intent(in)    :: dims(:)
+    integer,          intent(in)    :: nflds
+    real(kind=8),     intent(inout) :: fields(:,:)
+
+    integer           :: n, idx1, idx2
+    real(kind=8)      :: urot, vrot
+    character(len=10) :: vgrid1, vgrid2
+    character(len=240) :: wgtsfile
+    character(len=20) :: subname = 'rotremap2d'
+
+    if (debug)write(logunit,'(a)')'enter '//trim(subname)
+
+    idx1 = 0; idx2 = 0
+    do n = 1,nflds
+       if (len_trim(vars(n)%var_pair) > 0 .and. idx1 .eq. 0) then
+          idx1 = n
+          idx2 = n+1
+       end if
+    end do
+
+    do n = 1,dims(1)*dims(2)
+       urot = fields(n,idx1)*cosrot(n) - fields(n,idx2)*sinrot(n)
+       vrot = fields(n,idx2)*cosrot(n) + fields(n,idx1)*sinrot(n)
+       fields(n,idx1) = urot
+       fields(n,idx2) = vrot
+    end do
+    vgrid1 = vars(idx1)%var_grid(1:2)
+    vgrid2 = vars(idx2)%var_grid(1:2)
+
+    call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin2d.Ct.ij.nc', 'rgbilin2d', dims=(/nxr,nyr/),       &
+         nflds=nflds, field=fields)
+
+    wgtsfile = trim(wdir)//'tripole.'//trim(fdst)//'.Ct.to.'//trim(vgrid1)//'.bilinear.nc'
+    print '(a)','X0 '//trim(wgtsfile)
+    call remap(trim(wgtsfile), fields(:,idx1), fields(:,idx1))
+    print '(a)','X1 '//trim(wgtsfile)
+    wgtsfile = trim(wdir)//'tripole.'//trim(fdst)//'.Ct.to.'//trim(vgrid2)//'.bilinear.nc'
+    call remap(trim(wgtsfile), fields(:,idx2), fields(:,idx2))
+
+    if (debug)write(logunit,'(a)')'exit '//trim(subname)
+  end subroutine rotremap2d
+
+  !----------------------------------------------------------
+  ! rotate nlevs vectors from EW->IJ and map back to native staggers
+  !----------------------------------------------------------
+  subroutine rotremap3d(vars, cosrot, sinrot, dims, nflds, fields)
+
+    real(kind=8),     intent(in)    :: cosrot(:),sinrot(:)
+    type(vardefs),    intent(in)    :: vars(:)
+    integer,          intent(in)    :: dims(:)
+    integer,          intent(in)    :: nflds
+    real(kind=8),     intent(inout) :: fields(:,:,:)
+
+    integer           :: n, idx1, idx2
+    real(kind=8)      :: urot, vrot
+    character(len=20) :: subname = 'rotremap2d'
+
+    if (debug)write(logunit,'(a)')'enter '//trim(subname)
+
+    ! idx1 = 0; idx2 = 0
+    ! do n = 1,nflds
+    !    if (len_trim(vars(n)%var_pair) > 0 .and. idx1 .eq. 0) then
+    !       idx1 = n
+    !       idx2 = n+1
+    !    end if
+    ! end do
+    ! do n = 1,dims(1)*dims(2)
+    !    urot = fields(n,idx1)*cosrot(n) - fields(n,idx2)*sinrot(n)
+    !    vrot = fields(n,idx2)*cosrot(n) + fields(n,idx1)*sinrot(n)
+    !    fields(n,idx1) = urot
+    !    fields(n,idx2) = vrot
+    ! end do
+
+    if (debug)write(logunit,'(a)')'exit '//trim(subname)
+  end subroutine rotremap3d
 
   !----------------------------------------------------------
   ! handle ESMF errors

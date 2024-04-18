@@ -28,8 +28,9 @@ include $(ESMFMKFILE)
 
 #localFopt = -check bounds -fpe0 -ftrapuv -fPIC -warn unused -check uninit
 #localFopt = -check bounds -fpe0 -ftrapuv -fPIC -check uninit
-localFopt = -check bounds -fpe0 -ftrapuv -fPIC -init=snan,arrays -check uninit
+#localFopt = -check bounds -fpe0 -ftrapuv -fPIC -init=snan,arrays -check uninit
 
+#localFopt = -Wunused
 ################################################################################
 ################################################################################
 
@@ -53,9 +54,9 @@ ictest: ocniceprep.o utils_mod.o utils_esmf_mod.o init_mod.o arrays_mod.o
 	$(ESMF_F90LINKER) $(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) -o $@ $^ $(ESMF_F90ESMFLINKLIBS)
 
 # module dependencies:
-ocniceprep.o: utils_mod.o init_mod.o arrays_mod.o
+ocniceprep.o: utils_mod.o utils_esmf_mod.o init_mod.o arrays_mod.o
 utils_mod.o: init_mod.o
-utils_esmf_mod.o:
+utils_esmf_mod.o: init_mod.o
 init_mod.o:
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
