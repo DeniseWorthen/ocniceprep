@@ -19,7 +19,7 @@ contains
 
     integer :: istep1, myear, mmonth, mday, msec
     integer :: ncid,varid,n
-    integer :: idimid,jdimid,kdimid,timid
+    integer :: idimid,jdimid,kdimid
     character(len=20) :: vname
     character(len=40) :: subname = 'setup_icerestart'
 
@@ -43,19 +43,19 @@ contains
     if (allocated(b2d)) then
        do n = 1,nbilin2d
           vname = trim(b2d(n)%var_name)
-          call nf90_err(nf90_def_var(ncid, vname, nf90_double, (/idimid,jdimid,timid/), varid), 'define variable: '// vname)
+          call nf90_err(nf90_def_var(ncid, vname, nf90_double, (/idimid,jdimid/), varid), 'define variable: '// vname)
        enddo
     end if
     !if (allocated(c2d)) then
     !   do n = 1,nconsd2d
     !      vname = trim(c2d(n)%var_name)
-    !      call nf90_err(nf90_def_var(ncid, vname, nf90_double, (/idimid,jdimid,timid/), varid), 'define variable: '// vname)
+    !      call nf90_err(nf90_def_var(ncid, vname, nf90_double, (/idimid,jdimid/), varid), 'define variable: '// vname)
     !   enddo
     !end if
     if (allocated(b3d)) then
        do n = 1,nbilin3d
           vname = trim(b3d(n)%var_name)
-          call nf90_err(nf90_def_var(ncid, vname, nf90_double, (/idimid,jdimid,kdimid,timid/), varid), 'define variable: '// vname)
+          call nf90_err(nf90_def_var(ncid, vname, nf90_double, (/idimid,jdimid,kdimid/), varid), 'define variable: '// vname)
        enddo
     end if
     call nf90_err(nf90_put_att(ncid, nf90_global, 'istep1', istep1), 'put global attribute istep1')

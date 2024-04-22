@@ -66,7 +66,7 @@ contains
   end subroutine createRH
 
   !----------------------------------------------------------
-  ! remap a R8 packed field of nflds via ESMF RH
+  ! remap a R8 packed field of nlen,nflds via ESMF RH
   !----------------------------------------------------------
   subroutine remapRH2d(src_field,dst_field)
 
@@ -105,7 +105,7 @@ contains
   end subroutine remapRH2d
 
   !----------------------------------------------------------
-  ! remap a R8 packed field of nlevs,nflds via ESMF RH
+  ! remap a R8 packed field of nlen,nlevs,nflds via ESMF RH
   !----------------------------------------------------------
   subroutine remapRH3d(src_field,dst_field)
 
@@ -118,13 +118,17 @@ contains
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)
 
-    fldsrc = ESMF_FieldCreate(meshsrc, farrayPtr=srcptr, meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    flddst = ESMF_FieldCreate(meshdst, farrayPtr=dstptr, meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    ! fldsrc = ESMF_FieldCreate(meshsrc, farrayPtr=srcptr, meshloc=ESMF_MESHLOC_ELEMENT, &
+    !      ungriddedLbound=(/1/), ungriddedUbound=(/size(src_field,2)/),       &
+    !      gridToFieldMap=(/1/), rc=rc)
+    ! if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    ! flddst = ESMF_FieldCreate(meshdst, farrayPtr=dstptr, meshloc=ESMF_MESHLOC_ELEMENT, &
+    !      ungriddedLbound=(/1/), ungriddedUbound=(/size(dst_field,2)/),       &
+    !      gridToFieldMap=(/1/), rc=rc)
+    ! if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
-    call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    ! call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, rc=rc)
+    ! if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
   end subroutine remapRH3d
 
