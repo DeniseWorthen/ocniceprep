@@ -5,8 +5,8 @@ program ocniceprep
   use init_mod   ,     only : nxt, nyt, nlevs, nxr, nyr, outvars, readnml, readcsv
   use init_mod   ,     only : wgtsdir, griddir, ftype, fsrc, fdst, input_file, angvar
   use init_mod   ,     only : do_ocnprep, debug, logunit
-  use arrays_mod ,     only : b2d, b3d, rgb2d, rgb3d, dstlon, dstlat, setup_packing
-  use arrays_mod ,     only : nbilin2d, nbilin3d, bilin2d, bilin3d
+  use arrays_mod ,     only : b2d, c2d, b3d, rgb2d, rgb3d, rgc2d, setup_packing
+  use arrays_mod ,     only : nbilin2d, nbilin3d, nconsd2d, bilin2d, bilin3d, consd2d
   use utils_mod  ,     only : getfield, packarrays, remap, dumpnc, nf90_err
   use utils_esmf_mod , only : createRH, remapRH, ChkErr, rotremap
   use restarts_mod ,   only : setup_icerestart, setup_ocnrestart
@@ -159,6 +159,28 @@ program ocniceprep
      end if
   end if
 
+  ! 2D conserv
+  if (allocated(consd2d)) then
+     call packarrays(trim(input_file), trim(wgtsdir)//fsrc(3:5)//'/', cos(angsrc), sin(angsrc),         &
+          c2d, dims=(/nxt,nyt/), nflds=nconsd2d, fields=consd2d)
+     rgc2d = 0.0
+     call remapRH(src_field=consd2d, dst_field=rgc2d)
+
+     if (debug) then
+        write(logunit,'(a)')'remap 2D fields conserv with '//trim(wgtsfile)
+        write(logunit,'(a)')'packed min/max values, mapped min/max values'
+        do n = 1,nconsd2d
+           write(logunit,'(i4,a10,3(a2,a6),4g14.4)')n,trim(c2d(n)%var_name),'  ',                       &
+                trim(c2d(n)%var_grid),'  ',trim(c2d(n)%var_pair),'  ', trim(c2d(n)%var_pair_grid),      &
+		minval(consd2d(:,n)), maxval(consd2d(:,n)), minval(rgc2d(:,n)), maxval(rgc2d(:,n))
+        end do
+        call dumpnc(trim(ftype)//'.'//trim(fsrc)//'.consd2d.nc', 'consd2d', dims=(/nxt,nyt/),           &
+             nflds=nconsd2d, field=consd2d)
+	call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgconsd2d.nc', 'rgconsd2d', dims=(/nxr,nyr/),       &
+             nflds=nconsd2d, field=rgc2d)
+     end if
+  end if
+
   ! 3D bilin
   if (allocated(bilin3d))then
      call packarrays(trim(input_file), trim(wgtsdir)//fsrc(3:5)//'/', cos(angsrc), sin(angsrc),         &
@@ -186,18 +208,24 @@ program ocniceprep
   !--------------------------------------------------------
 
   if (allocated(bilin2d)) then
-     call rotremap(trim(wgtsdir)//fdst(3:5)//'/', b2d, cos(angdst), sin(angdst), dims=(/nxr,nyr/), &
+     call rotremap(trim(wgtsdir)//fdst(3:5)//'/', b2d, cos(angdst), sin(angdst), dims=(/nxr,nyr/),         &
           nflds=nbilin2d, fields=rgb2d)
 
      call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin2d.Bu.ij.nc', 'rgbilin2d', dims=(/nxr,nyr/),       &
           nflds=nbilin2d, field=rgb2d)
   end if
+  if (allocated(consd2d)) then
+     call rotremap(trim(wgtsdir)//fdst(3:5)//'/', c2d, cos(angdst), sin(angdst), dims=(/nxr,nyr/),         &
+          nflds=nconsd2d, fields=rgc2d)
 
+     call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin2d.Bu.ij.nc', 'rgbilin2d', dims=(/nxr,nyr/),       &
+          nflds=nconsd2d, field=rgc2d)
+  end if
   if (allocated(bilin3d)) then
-     call rotremap(trim(wgtsdir)//fdst(3:5)//'/', b3d, cos(angdst), sin(angdst), dims=(/nxr,nyr,nlevs/), &
+     call rotremap(trim(wgtsdir)//fdst(3:5)//'/', b3d, cos(angdst), sin(angdst), dims=(/nxr,nyr,nlevs/),   &
           nflds=nbilin3d, fields=rgb3d)
 
-     call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin3d.Bu.ij.nc', 'rgbilin3d', dims=(/nxr,nyr,nlevs/),       &
+     call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin3d.Bu.ij.nc', 'rgbilin3d', dims=(/nxr,nyr,nlevs/), &
           nk=nlevs, nflds=nbilin3d, field=rgb3d)
   end if
 
@@ -227,14 +255,14 @@ program ocniceprep
         call nf90_err(nf90_put_var(ncid,   varid, out2d), 'put variable: '//vname)
      end do
   end if
-  ! if (allocated(rgc2d)) then
-  !    do n = 1,nconsd2d
-  !       out2d(:,:) = reshape(rgc2d(:,n), (/nxr,nyr/))
-  !       vname = trim(c2d(n)%var_name)
-  !       call nf90_err(nf90_inq_varid(ncid, vname, varid), 'get variable Id: '//vname)
-  !       call nf90_err(nf90_put_var(ncid,   varid, out2d), 'put variable: '//vname)
-  !    end do
-  ! end if
+  if (allocated(rgc2d)) then
+     do n = 1,nconsd2d
+        out2d(:,:) = reshape(rgc2d(:,n), (/nxr,nyr/))
+        vname = trim(c2d(n)%var_name)
+        call nf90_err(nf90_inq_varid(ncid, vname, varid), 'get variable Id: '//vname)
+        call nf90_err(nf90_put_var(ncid,   varid, out2d), 'put variable: '//vname)
+     end do
+  end if
   if (allocated(rgb3d)) then
      do n = 1,nbilin3d
         out3d(:,:,:) = reshape(rgb3d(:,:,n), (/nxr,nyr,nlevs/))

@@ -118,13 +118,13 @@ contains
     call nf90_err(nf90_def_var(ncid, 'Time', nf90_double, (/timid/), varid), 'define variable: Time')
     call nf90_err(nf90_put_att(ncid, varid,    'units', trim(timeunit)), 'put variable attribute: units')
     ! spatial grid
-    call nf90_err(nf90_def_var(ncid, 'lonh', nf90_double,  (/idimid/), varid), 'define variable: lonh')
+    call nf90_err(nf90_def_var(ncid, 'lonh', nf90_double,  (/jdimid,idimid/), varid), 'define variable: lonh')
     call nf90_err(nf90_put_att(ncid, varid, 'units', 'degrees_east'),  'put variable attribute: units')
-    call nf90_err(nf90_def_var(ncid, 'lath', nf90_double,  (/jdimid/), varid), 'define variable: lath' )
+    call nf90_err(nf90_def_var(ncid, 'lath', nf90_double,  (/jdimid,idimid/), varid), 'define variable: lath' )
     call nf90_err(nf90_put_att(ncid, varid, 'units', 'degrees_north'), 'put variable attribute: units')
-    call nf90_err(nf90_def_var(ncid, 'lonq', nf90_double, (/qidimid/), varid), 'define variable: lonq')
+    call nf90_err(nf90_def_var(ncid, 'lonq', nf90_double, (/qidimid,jdimid/), varid), 'define variable: lonq')
     call nf90_err(nf90_put_att(ncid, varid, 'units', 'degrees_east'),  'put variable attribute: units')
-    call nf90_err(nf90_def_var(ncid, 'latq', nf90_double, (/qjdimid/), varid), 'define variable: latq' )
+    call nf90_err(nf90_def_var(ncid, 'latq', nf90_double, (/idimid,qjdimid/), varid), 'define variable: latq' )
     call nf90_err(nf90_put_att(ncid, varid, 'units', 'degrees_north'), 'put variable attribute: units')
     ! vertical grid
     call nf90_err(nf90_def_var(ncid, 'Layer', nf90_double,  (/kdimid/), varid), 'define variable: Layer')
