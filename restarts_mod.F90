@@ -58,13 +58,13 @@ contains
           call nf90_err(nf90_def_var(ncid, vname, nf90_double, (/idimid,jdimid,kdimid/), varid), 'define variable: '// vname)
        enddo
     end if
-    call nf90_err(nf90_enddef(ncid), 'enddef: '// trim(fout))
 
     call nf90_err(nf90_put_att(ncid, nf90_global, 'istep1', istep1), 'put global attribute istep1')
     call nf90_err(nf90_put_att(ncid, nf90_global,  'myear',  myear), 'put global attribute myear')
     call nf90_err(nf90_put_att(ncid, nf90_global, 'mmonth', mmonth), 'put global attribute mmonth')
     call nf90_err(nf90_put_att(ncid, nf90_global,   'mday',   mday), 'put global attribute mday')
     call nf90_err(nf90_put_att(ncid, nf90_global,   'msec',   msec), 'put global attribute msec')
+    call nf90_err(nf90_enddef(ncid), 'enddef: '// trim(fout))
     call nf90_err(nf90_close(ncid), 'close: '// trim(fout))
 
     if (debug)write(logunit,'(a)')'exit '//trim(subname)

@@ -92,14 +92,11 @@ contains
     if (chkerr(rc,__LINE__,u_FILE_u)) return
     call ESMF_FieldGet(flddst, farrayptr=dstptr, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) return
+
     dstptr = 0.0
     srcptr = src_field
-
-    !print '(a,2g14.7)','src min/max ',minval(srcptr), maxval(srcptr)
     call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-
-    !print '(a,2g14.7)','dst min/max ',minval(dstptr), maxval(dstptr)
     dst_field = dstptr
 
   end subroutine remapRH2d
@@ -145,7 +142,7 @@ contains
     real(kind=8),     intent(inout) :: fields(:,:)
 
     integer            :: n, idx1, idx2
-    real(kind=8)       :: urot, vrot
+    real(kind=8), allocatable, dimension(:) :: urot, vrot
     character(len=10)  :: vgrid1, vgrid2
     character(len=240) :: wgtsfile
     character(len=20)  :: subname = 'rotremap2d'
@@ -159,25 +156,23 @@ contains
           idx2 = n+1
        end if
     end do
+    print *,idx1,idx2
+    if (idx1 .eq. 0)return
 
-    do n = 1,dims(1)*dims(2)
-       urot = fields(n,idx1)*cosrot(n) - fields(n,idx2)*sinrot(n)
-       vrot = fields(n,idx2)*cosrot(n) + fields(n,idx1)*sinrot(n)
-       fields(n,idx1) = urot
-       fields(n,idx2) = vrot
-    end do
     vgrid1 = vars(idx1)%var_grid(1:2)
     vgrid2 = vars(idx1)%var_pair_grid(1:2)
 
-    print *,trim(vars(idx1)%var_name),trim(vars(idx2)%var_name),trim(vgrid1),trim(vgrid2)
+    allocate(urot(1:dims(1)*dims(2))); urot = 0.0
+    allocate(vrot(1:dims(1)*dims(2))); vrot = 0.0
+    urot(:) = fields(:,idx1)*cosrot(:) - fields(:,idx2)*sinrot(:)
+    vrot(:) = fields(:,idx2)*cosrot(:) + fields(:,idx1)*sinrot(:)
 
-    call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin2d.Ct.ij.nc', 'rgbilin2d', dims=(/nxr,nyr/),       &
-         nflds=nflds, field=fields)
+    if (debug) write(logunit,'(a)')'restagger from Ct to '//trim(vgrid1)//' and '//trim(vgrid2)
 
     wgtsfile = trim(wdir)//'tripole.'//trim(fdst)//'.Ct.to.'//trim(vgrid1)//'.bilinear.nc'
-    call remap(trim(wgtsfile), fields(:,idx1), fields(:,idx1))
+    call remap(trim(wgtsfile), urot, fields(:,idx1))
     wgtsfile = trim(wdir)//'tripole.'//trim(fdst)//'.Ct.to.'//trim(vgrid2)//'.bilinear.nc'
-    call remap(trim(wgtsfile), fields(:,idx2), fields(:,idx2))
+    call remap(trim(wgtsfile), vrot, fields(:,idx2))
 
     if (debug)write(logunit,'(a)')'exit '//trim(subname)
   end subroutine rotremap2d
@@ -211,8 +206,11 @@ contains
           idx2 = n+1
        end if
     end do
+    if (idx1 .eq. 0)return
+
     vgrid1 = vars(idx1)%var_grid(1:2)
     vgrid2 = vars(idx1)%var_pair_grid(1:2)
+    if (debug) write(logunit,'(a)')'restagger from Ct to '//trim(vgrid1)//' and '//trim(vgrid2)
 
     allocate(urot(1:dims(1)*dims(2))); urot = 0.0
     allocate(vrot(1:dims(1)*dims(2))); vrot = 0.0
@@ -220,16 +218,11 @@ contains
        urot(:) = fields(:,k,idx1)*cosrot(:) - fields(:,k,idx2)*sinrot(:)
        vrot(:) = fields(:,k,idx2)*cosrot(:) + fields(:,k,idx1)*sinrot(:)
        wgtsfile = trim(wdir)//'tripole.'//trim(fdst)//'.Ct.to.'//trim(vgrid1)//'.bilinear.nc'
-       print '(a)','X0 '//trim(wgtsfile)
        call remap(trim(wgtsfile), urot, fields(:,k,idx1))
        wgtsfile = trim(wdir)//'tripole.'//trim(fdst)//'.Ct.to.'//trim(vgrid2)//'.bilinear.nc'
-       print '(a)','X1 '//trim(wgtsfile)
        call remap(trim(wgtsfile), vrot, fields(:,k,idx2))
     end do
 
-    do k = 1,dims(3)
-       print *,k,minval(fields(:,k,idx1)),maxval(fields(:,k,idx1))
-    end do
     if (debug)write(logunit,'(a)')'exit '//trim(subname)
   end subroutine rotremap3d
 

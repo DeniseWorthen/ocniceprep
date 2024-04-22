@@ -190,12 +190,10 @@ program ocniceprep
   end if
 
   ! 3D bilin
-  ! bilin3d(nxt*nyt,nlevs,nbilin3d)
   if (allocated(bilin3d))then
      call packarrays(trim(input_file), trim(wgtsdir)//fsrc(3:5)//'/', cos(angsrc), sin(angsrc),         &
           b3d, dims=(/nxt,nyt,nlevs/), nflds=nbilin3d, fields=bilin3d)
      rgb3d = 0.0
-     print *,'here done packarrays'
      do n = 1,nlevs
         call remapRH(src_field=bilin3d(:,n,:), dst_field=rgb3d(:,n,:))
      end do
@@ -268,6 +266,7 @@ program ocniceprep
         ! temp workaround
         if (b2d(n)%var_grid(1:2) == 'Bu') out2d(:,nyr) = out2d(:,nyr-1)
         vname = trim(b2d(n)%var_name)
+        print *,b2d(n)%var_grid(1:2),vname
         call nf90_err(nf90_inq_varid(ncid, vname, varid), 'get variable Id: '//vname)
         call nf90_err(nf90_put_var(ncid,   varid, out2d), 'put variable: '//vname)
      end do
