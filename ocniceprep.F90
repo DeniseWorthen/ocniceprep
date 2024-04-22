@@ -96,16 +96,11 @@ program ocniceprep
   gridfile = trim(griddir)//fdst(3:5)//'/'//'tripole.'//trim(fdst)//'.nc'
   call nf90_err(nf90_open(trim(gridfile), nf90_nowrite, ncid), 'open: '//trim(gridfile))
   call getfield(trim(gridfile), 'anglet', dims=(/nxr,nyr/), field=angdst)
-  ! spatial domain of output resolution
-  !if (do_ocnprep) then
-  !   call getfield(trim(gridfile), 'latCt', dims=(/nxr,nyr/), field=lath)
-  !   call getfield(trim(gridfile), 'lonCt', dims=(/nxr,nyr/), field=lonh)
-  !   call getfield(trim(gridfile), 'lonCu', dims=(/nxr,nyr/), field=lonq)
-  !   call getfield(trim(gridfile), 'latCv', dims=(/nxr,nyr/), field=latq)
-  !end if
   call nf90_err(nf90_close(ncid), 'close: '//trim(gridfile))
+
   ! --------------------------------------------------------
-  ! get the 3rd (vertical or ncat) dimension
+  ! get the 3rd (vertical or ncat) dimension and the masking
+  ! variable
   ! --------------------------------------------------------
 
   call nf90_err(nf90_open(trim(input_file), nf90_nowrite, ncid), 'open: '//trim(input_file))
@@ -130,10 +125,23 @@ program ocniceprep
   end do
   call nf90_err(nf90_close(ncid), 'close: '//trim(input_file))
 
- ! --------------------------------------------------------
- ! create packed arrays for mapping and remap packed arrays
- ! to the destination grid
- ! --------------------------------------------------------
+  ! --------------------------------------------------------
+  ! get the masking variable for ocean 3-d remapping
+  ! --------------------------------------------------------
+
+  ! if (do_ocnprep) then
+  !    allocate(mask3d(nxt*nyt,nlevs)); mask3d = 0.0
+  !    call getfield(trim(input_file), trim(maskvar), dims=(/nxt,nyt,nlevs/), field=mask3d)
+
+  !    kmask = nlevs
+  !    do k = nlevs,1,-1
+  !       do i = 1,nxt*nyt
+  !          if (mask3d(i,k) .gt. hmin)kmask(i) = k
+
+  ! --------------------------------------------------------
+  ! create packed arrays for mapping and remap packed arrays
+  ! to the destination grid
+  ! --------------------------------------------------------
 
   call setup_packing(nvalid,outvars)
 
@@ -182,10 +190,12 @@ program ocniceprep
   end if
 
   ! 3D bilin
+  ! bilin3d(nxt*nyt,nlevs,nbilin3d)
   if (allocated(bilin3d))then
      call packarrays(trim(input_file), trim(wgtsdir)//fsrc(3:5)//'/', cos(angsrc), sin(angsrc),         &
           b3d, dims=(/nxt,nyt,nlevs/), nflds=nbilin3d, fields=bilin3d)
      rgb3d = 0.0
+     print *,'here done packarrays'
      do n = 1,nlevs
         call remapRH(src_field=bilin3d(:,n,:), dst_field=rgb3d(:,n,:))
      end do
@@ -212,23 +222,26 @@ program ocniceprep
   if (allocated(bilin2d)) then
      call rotremap(trim(wgtsdir)//fdst(3:5)//'/', b2d, cos(angdst), sin(angdst), dims=(/nxr,nyr/),         &
           nflds=nbilin2d, fields=rgb2d)
-
-     call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin2d.Bu.ij.nc', 'rgbilin2d', dims=(/nxr,nyr/),       &
-          nflds=nbilin2d, field=rgb2d)
+     if (debug) then
+        call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin2d.ij.nc', 'rgbilin2d', dims=(/nxr,nyr/),       &
+             nflds=nbilin2d, field=rgb2d)
+     end if
   end if
   if (allocated(consd2d)) then
      call rotremap(trim(wgtsdir)//fdst(3:5)//'/', c2d, cos(angdst), sin(angdst), dims=(/nxr,nyr/),         &
           nflds=nconsd2d, fields=rgc2d)
-
-     call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin2d.Bu.ij.nc', 'rgbilin2d', dims=(/nxr,nyr/),       &
-          nflds=nconsd2d, field=rgc2d)
+     if (debug) then
+        call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin2d.ij.nc', 'rgbilin2d', dims=(/nxr,nyr/),       &
+             nflds=nconsd2d, field=rgc2d)
+     end if
   end if
   if (allocated(bilin3d)) then
      call rotremap(trim(wgtsdir)//fdst(3:5)//'/', b3d, cos(angdst), sin(angdst), dims=(/nxr,nyr,nlevs/),   &
           nflds=nbilin3d, fields=rgb3d)
-
-     call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin3d.Bu.ij.nc', 'rgbilin3d', dims=(/nxr,nyr,nlevs/), &
-          nk=nlevs, nflds=nbilin3d, field=rgb3d)
+     if (debug) then
+        call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgbilin3d.ij.nc', 'rgbilin3d', dims=(/nxr,nyr,nlevs/), &
+             nk=nlevs, nflds=nbilin3d, field=rgb3d)
+     end if
   end if
 
   ! --------------------------------------------------------
@@ -252,6 +265,8 @@ program ocniceprep
   if (allocated(rgb2d)) then
      do n = 1,nbilin2d
         out2d(:,:) = reshape(rgb2d(:,n), (/nxr,nyr/))
+        ! temp workaround
+        if (b2d(n)%var_grid(1:2) == 'Bu') out2d(:,nyr) = out2d(:,nyr-1)
         vname = trim(b2d(n)%var_name)
         call nf90_err(nf90_inq_varid(ncid, vname, varid), 'get variable Id: '//vname)
         call nf90_err(nf90_put_var(ncid,   varid, out2d), 'put variable: '//vname)
@@ -268,6 +283,8 @@ program ocniceprep
   if (allocated(rgb3d)) then
      do n = 1,nbilin3d
         out3d(:,:,:) = reshape(rgb3d(:,:,n), (/nxr,nyr,nlevs/))
+        ! temp workaround
+        if (b3d(n)%var_grid(1:2) == 'Cv') out3d(:,nyr,:) = out3d(:,nyr-1,:)
         vname = trim(b3d(n)%var_name)
         call nf90_err(nf90_inq_varid(ncid, vname, varid), 'get variable Id: '//vname)
         call nf90_err(nf90_put_var(ncid,   varid, out3d), 'put variable: '//vname)

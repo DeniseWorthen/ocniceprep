@@ -58,12 +58,13 @@ contains
           call nf90_err(nf90_def_var(ncid, vname, nf90_double, (/idimid,jdimid,kdimid/), varid), 'define variable: '// vname)
        enddo
     end if
+    call nf90_err(nf90_enddef(ncid), 'enddef: '// trim(fout))
+
     call nf90_err(nf90_put_att(ncid, nf90_global, 'istep1', istep1), 'put global attribute istep1')
     call nf90_err(nf90_put_att(ncid, nf90_global,  'myear',  myear), 'put global attribute myear')
     call nf90_err(nf90_put_att(ncid, nf90_global, 'mmonth', mmonth), 'put global attribute mmonth')
     call nf90_err(nf90_put_att(ncid, nf90_global,   'mday',   mday), 'put global attribute mday')
     call nf90_err(nf90_put_att(ncid, nf90_global,   'msec',   msec), 'put global attribute msec')
-    call nf90_err(nf90_enddef(ncid), 'enddef: '// trim(fout))
     call nf90_err(nf90_close(ncid), 'close: '// trim(fout))
 
     if (debug)write(logunit,'(a)')'exit '//trim(subname)
@@ -94,52 +95,24 @@ contains
     call nf90_err(nf90_get_var(ncid, varid, layer), 'get variable: Layer '//trim(fin))
     call nf90_err(nf90_close(ncid), 'close: '//trim(fin))
 
-    ! get spatial domain from tripole file
-    call nf90_err(nf90_open(trim(fgrid), nf90_nowrite, ncid), 'open: '//trim(fgrid))
-    call nf90_err(nf90_inq_varid(ncid, 'lonCt', varid), 'get variable Id: lonCt '//trim(fgrid))
-    call nf90_err(nf90_get_var(ncid, varid, lonCt), 'get variable: lonCt '//trim(fgrid))
-    call nf90_err(nf90_inq_varid(ncid, 'latCt', varid), 'get variable Id: latCt '//trim(fgrid))
-    call nf90_err(nf90_get_var(ncid, varid, latCt), 'get variable: latCt '//trim(fgrid))
-    call nf90_err(nf90_inq_varid(ncid, 'lonCu', varid), 'get variable Id: lonCu '//trim(fgrid))
-    call nf90_err(nf90_get_var(ncid, varid, lonCu), 'get variable: lonCu '//trim(fgrid))
-    call nf90_err(nf90_inq_varid(ncid, 'latCv', varid), 'get variable Id: latCv '//trim(fgrid))
-    call nf90_err(nf90_get_var(ncid, varid, latCv), 'get variable: latCv '//trim(fgrid))
-    call nf90_err(nf90_close(ncid), 'close: '//trim(fgrid))
-
-    ! create the restart file
     call nf90_err(nf90_create(trim(fout), nf90_clobber, ncid), 'create: '//trim(fout))
-    call nf90_err(nf90_def_dim(ncid, 'lonh', nxr,  idimid), 'define dimension: lonh')
-    call nf90_err(nf90_def_dim(ncid, 'lath', nyr,  jdimid), 'define dimension: lath')
-    call nf90_err(nf90_def_dim(ncid, 'lonq', nxr, qidimid), 'define dimension: lonq')
-    call nf90_err(nf90_def_dim(ncid, 'latq', nxr, qjdimid), 'define dimension: latq')
+    call nf90_err(nf90_def_dim(ncid, 'ni', nxr, idimid), 'define dimension: ni')
+    call nf90_err(nf90_def_dim(ncid, 'nj', nyr, jdimid), 'define dimension: nj')
     call nf90_err(nf90_def_dim(ncid, 'Layer',  nlevs, kdimid), 'define dimension: Layer')
     call nf90_err(nf90_def_dim(ncid, 'Time', nf90_unlimited, timid), 'define dimension: Time')
     ! define the time variable
     call nf90_err(nf90_def_var(ncid, 'Time', nf90_double, (/timid/), varid), 'define variable: Time')
     call nf90_err(nf90_put_att(ncid, varid,    'units', trim(timeunit)), 'put variable attribute: units')
-    ! spatial grid
-    call nf90_err(nf90_def_var(ncid, 'lonh', nf90_double,  (/jdimid,idimid/), varid), 'define variable: lonh')
-    call nf90_err(nf90_put_att(ncid, varid, 'units', 'degrees_east'),  'put variable attribute: units')
-    call nf90_err(nf90_def_var(ncid, 'lath', nf90_double,  (/jdimid,idimid/), varid), 'define variable: lath' )
-    call nf90_err(nf90_put_att(ncid, varid, 'units', 'degrees_north'), 'put variable attribute: units')
-    call nf90_err(nf90_def_var(ncid, 'lonq', nf90_double, (/qidimid,jdimid/), varid), 'define variable: lonq')
-    call nf90_err(nf90_put_att(ncid, varid, 'units', 'degrees_east'),  'put variable attribute: units')
-    call nf90_err(nf90_def_var(ncid, 'latq', nf90_double, (/idimid,qjdimid/), varid), 'define variable: latq' )
-    call nf90_err(nf90_put_att(ncid, varid, 'units', 'degrees_north'), 'put variable attribute: units')
     ! vertical grid
     call nf90_err(nf90_def_var(ncid, 'Layer', nf90_double,  (/kdimid/), varid), 'define variable: Layer')
     call nf90_err(nf90_put_att(ncid, varid, 'units', 'm'), 'put variable attribute: units')
-    call nf90_err(nf90_enddef(ncid), 'enddef: '// trim(fout))
 
     if (allocated(b2d)) then
        do n = 1,nbilin2d
           vname = trim(b2d(n)%var_name)
           vunit = trim(b2d(n)%units)
           vlong = trim(b2d(n)%long_name)
-          if (trim(b2d(n)%var_grid) == 'Cu') dims3 = (/qidimid,jdimid,timid/)
-          if (trim(b2d(n)%var_grid) == 'Cv') dims3 = (/idimid,qjdimid,timid/)
-          if (trim(b2d(n)%var_grid) == 'Ct') dims3 = (/idimid,jdimid,timid/)
-          call nf90_err(nf90_def_var(ncid, vname, nf90_double, dims3, varid), 'define variable: '// vname)
+          call nf90_err(nf90_def_var(ncid, vname, nf90_double, (/idimid,jdimid,timid/), varid), 'define variable: '// vname)
           call nf90_err(nf90_put_att(ncid, varid,      'units', vunit), 'put variable attribute: units')
           call nf90_err(nf90_put_att(ncid, varid,  'long_name', vlong), 'put variable attribute: long_name')
        enddo
@@ -163,27 +136,16 @@ contains
           vname = trim(b3d(n)%var_name)
           vunit = trim(b3d(n)%units)
           vlong = trim(b3d(n)%long_name)
-          if (trim(b3d(n)%var_grid) == 'Cu') dims4 = (/qidimid,jdimid,kdimid,timid/)
-          if (trim(b3d(n)%var_grid) == 'Cv') dims4 = (/idimid,qjdimid,kdimid,timid/)
-          if (trim(b3d(n)%var_grid) == 'Ct') dims4 = (/idimid,jdimid,kdimid,timid/)
-          call nf90_err(nf90_def_var(ncid, vname, nf90_double, dims4, varid), 'define variable: '// vname)
+          call nf90_err(nf90_def_var(ncid, vname, nf90_double, (/idimid,jdimid,kdimid,timid/), varid), 'define variable: '// vname)
           call nf90_err(nf90_put_att(ncid, varid,      'units', vunit), 'put variable attribute: units' )
           call nf90_err(nf90_put_att(ncid, varid,  'long_name', vlong), 'put variable attribute: long_name' )
        enddo
     end if
+    call nf90_err(nf90_enddef(ncid), 'enddef: '// trim(fout))
 
-    ! dimensions
-    call nf90_err(nf90_inq_varid(ncid, 'lonh', varid), 'get variable Id: lonh')
-    call nf90_err(nf90_put_var(ncid,   varid, lonCt),     'put variable: lonh')
-    call nf90_err(nf90_inq_varid(ncid, 'lath', varid), 'get variable Id: lath')
-    call nf90_err(nf90_put_var(ncid,   varid, latCt),     'put variable: lath')
-    call nf90_err(nf90_inq_varid(ncid, 'lonq', varid), 'get variable Id: lonq')
-    call nf90_err(nf90_put_var(ncid,   varid, lonCu),     'put variable: lonq')
-    call nf90_err(nf90_inq_varid(ncid, 'latq', varid), 'get variable Id: latq')
-    call nf90_err(nf90_put_var(ncid,   varid, latCv),     'put variable: latq')
     ! time
-    call nf90_err(nf90_inq_varid(ncid, 'time', varid), 'get variable Id: time')
-    call nf90_err(nf90_put_var(ncid, varid, timestamp), 'put variable: time')
+    call nf90_err(nf90_inq_varid(ncid, 'Time', varid), 'get variable Id: Time')
+    call nf90_err(nf90_put_var(ncid, varid, timestamp), 'put variable: Time')
     ! vertical
     call nf90_err(nf90_inq_varid(ncid, 'Layer', varid), 'get variable Id: Layer')
     call nf90_err(nf90_put_var(ncid, varid, Layer)    , 'put variable: Layer')

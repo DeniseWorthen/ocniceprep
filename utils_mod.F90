@@ -66,9 +66,9 @@ contains
     do n = 1,nflds
        if (trim(vars(n)%var_grid) == 'Cu' .or. trim(vars(n)%var_grid) == 'Bu_x') then
           allocate(vecpair(dims(1)*dims(2),2)); vecpair = 0.0
-          call getvecpair(trim(filesrc), trim(wgtsdir), cosrot, sinrot,   &
-               trim(vars(n)%var_name), trim(vars(n)%var_grid(1:2)), &
-               trim(vars(n)%var_pair), trim(vars(n)%var_pair_grid(1:2)),  &
+          call getvecpair(trim(filesrc), trim(wgtsdir), cosrot, sinrot,  &
+               trim(vars(n)%var_name), trim(vars(n)%var_grid(1:2)),      &
+               trim(vars(n)%var_pair), trim(vars(n)%var_pair_grid(1:2)), &
                dims=(/dims(1),dims(2)/), vecpair=vecpair)
        end if
     end do
@@ -115,11 +115,11 @@ contains
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)
     ! obtain vector pairs
-    do n = 1,dims(3)
+    do n = 1,nflds
        if (trim(vars(n)%var_grid) == 'Cu') then
           allocate(vecpair(dims(1)*dims(2),dims(3),2)); vecpair = 0.0
           call getvecpair(trim(filesrc), trim(wgtsdir), cosrot, sinrot, &
-               trim(vars(n)%var_name), trim(vars(n)%var_grid),    &
+               trim(vars(n)%var_name), trim(vars(n)%var_grid),          &
                trim(vars(n)%var_pair), trim(vars(n)%var_pair_grid),     &
                dims=(/dims(1),dims(2),dims(3)/), vecpair=vecpair)
        end if
@@ -336,9 +336,7 @@ contains
     do i = 1,n_s
        ii = row(i); jj = col(i)
        dst_field(ii) = dst_field(ii) + S(i)*src_field(jj)
-       if(ii.eq. 114945)write(10,*),i,src_field(jj),dst_field(ii)
     enddo
-    print *,trim(subname),'  ',dst_field(114945)
 
     if (debug) write(logunit,'(a)')'exit '//trim(subname)
   end subroutine remap1d

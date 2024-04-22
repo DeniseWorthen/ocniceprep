@@ -75,8 +75,7 @@ contains
     close (iounit)
     nxt = srcdims(1); nyt = srcdims(2)
     nxr = dstdims(1); nyr = dstdims(2)
-    print *,nxt,nyt
-    print *,nxr,nyr
+
     ! initialize the source file type and variables
     if (trim(ftype) == 'ocean') then
        do_ocnprep = .true.
