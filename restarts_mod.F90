@@ -96,8 +96,8 @@ contains
     call nf90_err(nf90_close(ncid), 'close: '//trim(fin))
 
     call nf90_err(nf90_create(trim(fout), nf90_clobber, ncid), 'create: '//trim(fout))
-    call nf90_err(nf90_def_dim(ncid, 'ni', nxr, idimid), 'define dimension: ni')
-    call nf90_err(nf90_def_dim(ncid, 'nj', nyr, jdimid), 'define dimension: nj')
+    call nf90_err(nf90_def_dim(ncid, 'nx', nxr, idimid), 'define dimension: nx')
+    call nf90_err(nf90_def_dim(ncid, 'ny', nyr, jdimid), 'define dimension: ny')
     call nf90_err(nf90_def_dim(ncid, 'Layer',  nlevs, kdimid), 'define dimension: Layer')
     call nf90_err(nf90_def_dim(ncid, 'Time', nf90_unlimited, timid), 'define dimension: Time')
     ! define the time variable
