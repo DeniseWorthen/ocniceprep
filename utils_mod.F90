@@ -267,7 +267,7 @@ contains
     character(len=*), optional, intent(in)  :: wgts
 
     ! local variable
-    integer                   :: ncid, varid, rc
+    integer                   :: k, ncid, varid, rc
     real(kind=8), allocatable :: a3d(:,:,:)
     real(kind=8), allocatable :: atmp(:,:)
     character(len=20)         :: subname = 'getfield3d'

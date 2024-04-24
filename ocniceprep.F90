@@ -29,7 +29,7 @@ program ocniceprep
   character(len=120) :: meshfsrc, meshfdst
 
   integer           :: nvalid
-  integer           :: n,nn,rc,ncid,varid
+  integer           :: k,n,nn,rc,ncid,varid
   integer           :: idx1,idx2
   character(len=20) :: vname
   ! debug
@@ -106,6 +106,8 @@ program ocniceprep
   if (do_ocnprep) then
      call nf90_err(nf90_inq_dimid(ncid, 'Layer', varid), 'get dimension Id: Layer'//trim(input_file))
      call nf90_err(nf90_inquire_dimension(ncid, varid, len=nlevs), 'get dimension Id: Layer'//trim(input_file))
+     allocate(mask3d(nlevs,nxt*nyt)); mask3d = 0.0
+     call getfield(trim(input_file), 'h', dims=(/nxt,nyt,nlevs/), field=mask3d)
   else
      call nf90_err(nf90_inq_dimid(ncid, 'ncat', varid), 'get dimension Id: ncat'//trim(input_file))
      call nf90_err(nf90_inquire_dimension(ncid, varid, len=nlevs), 'get dimension Id: ncat'//trim(input_file))
@@ -129,12 +131,9 @@ program ocniceprep
   ! --------------------------------------------------------
 
   if (do_ocnprep) then
-     allocate(mask3d(nxt*nyt,nlevs)); mask3d = 0.0
-     call getfield(trim(input_file), 'h', dims=(/nxt,nyt,nlevs/), field=mask3d)
-
      where(mask3d .le. 1.0e-3)mask3d = maskspval
      where(mask3d .ne. maskspval)mask3d = 1.0
-     call dumpnc(trim(ftype)//'.'//trim(fdst)//'.mask3d.nc', 'mask3d', dims=(/nxt,nyt,nlevs/), field=mask3d)
+     call dumpnc(trim(ftype)//'.'//trim(fsrc)//'.mask3d.nc', 'mask3d', dims=(/nxt,nyt,nlevs/), field=mask3d)
   end if
 
   ! --------------------------------------------------------
@@ -199,7 +198,8 @@ program ocniceprep
      !(nflds,nlevs,nlen)
      do n = 1,nlevs
         if (do_ocnprep) then
-           call remapRH(src_field=bilin3d(:,n,:), dst_field=rgb3d(:,n,:),hmask=mask3d(:,n))
+           !call remapRH(src_field=bilin3d(:,n,:), dst_field=rgb3d(:,n,:),hmask=mask3d(:,n))
+           call remapRH(src_field=bilin3d(:,n,:), dst_field=rgb3d(:,n,:))
         else
            call remapRH(src_field=bilin3d(:,n,:), dst_field=rgb3d(:,n,:))
         end if

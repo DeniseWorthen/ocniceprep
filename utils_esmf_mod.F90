@@ -243,15 +243,15 @@ contains
 
     allocate(urot(1:dims(1)*dims(2))); urot = 0.0
     allocate(vrot(1:dims(1)*dims(2))); vrot = 0.0
-    urot(:) = fields(:,idx1)*cosrot(:) - fields(:,idx2)*sinrot(:)
-    vrot(:) = fields(:,idx2)*cosrot(:) + fields(:,idx1)*sinrot(:)
+    urot(:) = fields(idx1,:)*cosrot(:) - fields(idx2,:)*sinrot(:)
+    vrot(:) = fields(idx2,:)*cosrot(:) + fields(idx1,:)*sinrot(:)
 
     if (debug) write(logunit,'(a)')'restagger from Ct to '//trim(vgrid1)//' and '//trim(vgrid2)
 
     wgtsfile = trim(wdir)//'tripole.'//trim(fdst)//'.Ct.to.'//trim(vgrid1)//'.bilinear.nc'
-    call remap(trim(wgtsfile), urot, fields(:,idx1))
+    call remap(trim(wgtsfile), urot, fields(idx1,:))
     wgtsfile = trim(wdir)//'tripole.'//trim(fdst)//'.Ct.to.'//trim(vgrid2)//'.bilinear.nc'
-    call remap(trim(wgtsfile), vrot, fields(:,idx2))
+    call remap(trim(wgtsfile), vrot, fields(idx2,:))
 
     if (debug)write(logunit,'(a)')'exit '//trim(subname)
   end subroutine rotremap2d
@@ -294,12 +294,12 @@ contains
     allocate(urot(1:dims(1)*dims(2))); urot = 0.0
     allocate(vrot(1:dims(1)*dims(2))); vrot = 0.0
     do k = 1,dims(3)
-       urot(:) = fields(:,k,idx1)*cosrot(:) - fields(:,k,idx2)*sinrot(:)
-       vrot(:) = fields(:,k,idx2)*cosrot(:) + fields(:,k,idx1)*sinrot(:)
+       urot(:) = fields(idx1,k,:)*cosrot(:) - fields(idx2,k,:)*sinrot(:)
+       vrot(:) = fields(idx2,k,:)*cosrot(:) + fields(idx1,k,:)*sinrot(:)
        wgtsfile = trim(wdir)//'tripole.'//trim(fdst)//'.Ct.to.'//trim(vgrid1)//'.bilinear.nc'
-       call remap(trim(wgtsfile), urot, fields(:,k,idx1))
+       call remap(trim(wgtsfile), urot, fields(idx1,k,:))
        wgtsfile = trim(wdir)//'tripole.'//trim(fdst)//'.Ct.to.'//trim(vgrid2)//'.bilinear.nc'
-       call remap(trim(wgtsfile), vrot, fields(:,k,idx2))
+       call remap(trim(wgtsfile), vrot, fields(idx2,k,:))
     end do
 
     if (debug)write(logunit,'(a)')'exit '//trim(subname)
