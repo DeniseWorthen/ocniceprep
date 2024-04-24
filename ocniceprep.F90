@@ -159,7 +159,7 @@ program ocniceprep
         do n = 1,nbilin2d
            write(logunit,'(i4,a10,3(a2,a6),4g14.4)')n,trim(b2d(n)%var_name),'  ',                       &
                 trim(b2d(n)%var_grid),'  ',trim(b2d(n)%var_pair),'  ', trim(b2d(n)%var_pair_grid),      &
-                minval(bilin2d(:,n)), maxval(bilin2d(:,n)),minval(rgb2d(:,n)), maxval(rgb2d(:,n))
+                minval(bilin2d(n,:)), maxval(bilin2d(n,:)),minval(rgb2d(n,:)), maxval(rgb2d(n,:))
         end do
         call dumpnc(trim(ftype)//'.'//trim(fsrc)//'.bilin2d.nc', 'bilin2d', dims=(/nxt,nyt/),           &
              nflds=nbilin2d, field=bilin2d)
@@ -181,7 +181,7 @@ program ocniceprep
         do n = 1,nconsd2d
            write(logunit,'(i4,a10,3(a2,a6),4g14.4)')n,trim(c2d(n)%var_name),'  ',                       &
                 trim(c2d(n)%var_grid),'  ',trim(c2d(n)%var_pair),'  ', trim(c2d(n)%var_pair_grid),      &
-		minval(consd2d(:,n)), maxval(consd2d(:,n)), minval(rgc2d(:,n)), maxval(rgc2d(:,n))
+                minval(consd2d(n,:)), maxval(consd2d(n,:)), minval(rgc2d(n,:)), maxval(rgc2d(n,:))
         end do
         call dumpnc(trim(ftype)//'.'//trim(fsrc)//'.consd2d.nc', 'consd2d', dims=(/nxt,nyt/),           &
              nflds=nconsd2d, field=consd2d)
@@ -213,7 +213,7 @@ program ocniceprep
         do n = 1,nbilin3d
            write(logunit,'(i4,a10,3(a2,a6),4g14.4)')n,trim(b3d(n)%var_name),'  ',                       &
                 trim(b3d(n)%var_grid),'  ',trim(b3d(n)%var_pair),'  ', trim(b3d(n)%var_pair_grid),      &
-                minval(bilin3d(:,:,n)), maxval(bilin3d(:,:,n)),minval(rgb3d(:,:,n)), maxval(rgb3d(:,:,n))
+                minval(bilin3d(n,:,:)), maxval(bilin3d(n,:,:)),minval(rgb3d(n,:,:)), maxval(rgb3d(n,:,:))
         end do
         call dumpnc(trim(ftype)//'.'//trim(fsrc)//'.bilin3d.nc', 'bilin3d', dims=(/nxt,nyt,nlevs/),     &
              nk=nlevs, nflds=nbilin3d, field=bilin3d)
@@ -271,7 +271,7 @@ program ocniceprep
   call nf90_err(nf90_open(trim(fout), nf90_write, ncid), 'write: '//trim(fout))
   if (allocated(rgb2d)) then
      do n = 1,nbilin2d
-        out2d(:,:) = reshape(rgb2d(:,n), (/nxr,nyr/))
+        out2d(:,:) = reshape(rgb2d(n,:), (/nxr,nyr/))
         ! temp workaround
         if (b2d(n)%var_grid(1:2) == 'Bu') out2d(:,nyr) = out2d(:,nyr-1)
         vname = trim(b2d(n)%var_name)
@@ -282,7 +282,7 @@ program ocniceprep
   end if
   if (allocated(rgc2d)) then
      do n = 1,nconsd2d
-        out2d(:,:) = reshape(rgc2d(:,n), (/nxr,nyr/))
+        out2d(:,:) = reshape(rgc2d(n,:), (/nxr,nyr/))
         vname = trim(c2d(n)%var_name)
         call nf90_err(nf90_inq_varid(ncid, vname, varid), 'get variable Id: '//vname)
         call nf90_err(nf90_put_var(ncid,   varid, out2d), 'put variable: '//vname)
@@ -290,7 +290,9 @@ program ocniceprep
   end if
   if (allocated(rgb3d)) then
      do n = 1,nbilin3d
-        out3d(:,:,:) = reshape(rgb3d(:,:,n), (/nxr,nyr,nlevs/))
+        do k = 1,nlevs
+           out3d(:,:,k) = reshape(rgb3d(n,k,:), (/nxr,nyr/))
+        end do
         ! temp workaround
         if (b3d(n)%var_grid(1:2) == 'Cv') out3d(:,nyr,:) = out3d(:,nyr-1,:)
         vname = trim(b3d(n)%var_name)

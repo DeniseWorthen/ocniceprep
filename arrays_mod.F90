@@ -60,17 +60,17 @@ contains
 
     ! initialization required when compiled with sinit_arrays=nan
     if (nbilin2d > 0) then
-       allocate(bilin2d(nxt*nyt,nbilin2d)); bilin2d = 0.0
+       allocate(bilin2d(nbilin2d,nxt*nyt)); bilin2d = 0.0
        allocate(b2d(1:nbilin2d))
        if (debug) write(logunit,'(a)')'allocate bilin2d fields and types '
     end if
     if (nconsd2d > 0) then
-       allocate(consd2d(nxt*nyt,nconsd2d)); consd2d = 0.0
+       allocate(consd2d(nconsd2d,nxt*nyt)); consd2d = 0.0
        allocate(c2d(1:nconsd2d))
        if (debug) write(logunit,'(a)')'allocate consd2d fields and types '
     end if
     if (nbilin3d > 0) then
-       allocate(bilin3d(nxt*nyt,nlevs,nbilin3d)); bilin3d = 0.0
+       allocate(bilin3d(nbilin3d,nlevs,nxt*nyt)); bilin3d = 0.0
        allocate(b3d(1:nbilin3d))
        if (debug) write(logunit,'(a)')'allocate bilin3d fields and types '
     end if
@@ -99,13 +99,13 @@ contains
     ! --------------------------------------------------------
 
      if (nbilin2d > 0) then
-        allocate(rgb2d(nxr*nyr,nbilin2d)); rgb2d = 0.0
+        allocate(rgb2d(nbilin2d,nxr*nyr)); rgb2d = 0.0
      end if
      if (nconsd2d > 0) then
-        allocate(rgc2d(nxr*nyr,nconsd2d)); rgc2d = 0.0
+        allocate(rgc2d(nconsd2d,nxr*nyr)); rgc2d = 0.0
      end if
      if (nbilin3d > 0) then
-        allocate(rgb3d(nxr*nyr,nlevs,nbilin3d)); rgb3d = 0.0
+        allocate(rgb3d(nbilin3d,nlevs,nxr*nyr)); rgb3d = 0.0
      end if
 
   end subroutine setup_packing

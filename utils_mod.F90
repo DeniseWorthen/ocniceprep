@@ -56,7 +56,7 @@ contains
 
     ! local variables
     integer                   :: n, nn
-    real(kind=8), allocatable :: vecpair(:,:)
+    real, allocatable, dimension(:,:) :: vecpair
     character(len=20)         :: subname = 'packarrays2d'
 
     fields=0.0
@@ -79,15 +79,15 @@ contains
        if (len_trim(vars(n)%var_pair) == 0) then
           nn = nn + 1
           call getfield(trim(filesrc), trim(vars(n)%var_name), dims=(/dims(1),dims(2)/), &
-               field=fields(:,nn))
+               field=fields(nn,:))
        else ! fill with vector pairs
           nn = nn+1
           ! ocn vectors
-          if (trim(vars(n)%var_grid) == 'Cu')fields(:,nn) = vecpair(:,1)
-          if (trim(vars(n)%var_grid) == 'Cv')fields(:,nn) = vecpair(:,2)
+          if (trim(vars(n)%var_grid) == 'Cu')fields(nn,:) = vecpair(:,1)
+          if (trim(vars(n)%var_grid) == 'Cv')fields(nn,:) = vecpair(:,2)
           ! ice vectors
-          if (trim(vars(n)%var_grid) == 'Bu_x')fields(:,nn) = vecpair(:,1)
-          if (trim(vars(n)%var_grid) == 'Bu_y')fields(:,nn) = vecpair(:,2)
+          if (trim(vars(n)%var_grid) == 'Bu_x')fields(nn,:) = vecpair(:,1)
+          if (trim(vars(n)%var_grid) == 'Bu_y')fields(nn,:) = vecpair(:,2)
        end if
     end do
 
@@ -108,7 +108,7 @@ contains
 
     ! local variables
     integer                   :: n, nn
-    real(kind=8), allocatable :: vecpair(:,:,:)
+    real, allocatable, dimension(:,:,:) :: vecpair
     character(len=20)         :: subname = 'packarrays3d'
 
     fields=0.0
@@ -117,25 +117,25 @@ contains
     ! obtain vector pairs
     do n = 1,nflds
        if (trim(vars(n)%var_grid) == 'Cu') then
-          allocate(vecpair(dims(1)*dims(2),dims(3),2)); vecpair = 0.0
+          allocate(vecpair(dims(3),dims(1)*dims(2),2)); vecpair = 0.0
           call getvecpair(trim(filesrc), trim(wgtsdir), cosrot, sinrot, &
                trim(vars(n)%var_name), trim(vars(n)%var_grid),          &
                trim(vars(n)%var_pair), trim(vars(n)%var_pair_grid),     &
                dims=(/dims(1),dims(2),dims(3)/), vecpair=vecpair)
        end if
     end do
-
+    !nbilin3d,nlevs,nxt*nyt
     ! create packed array
     nn = 0
     do n = 1,nflds
        if (len_trim(vars(n)%var_pair) == 0) then
           nn = nn + 1
           call getfield(trim(filesrc), trim(vars(n)%var_name), dims=(/dims(1),dims(2),dims(3)/), &
-               field=fields(:,:,nn))
+               field=fields(nn,:,:))
        else ! fill with vector pairs
           nn = nn+1
-          if (trim(vars(n)%var_grid) == 'Cu')fields(:,:,nn) = vecpair(:,:,1)
-          if (trim(vars(n)%var_grid) == 'Cv')fields(:,:,nn) = vecpair(:,:,2)
+          if (trim(vars(n)%var_grid) == 'Cu')fields(nn,:,:) = vecpair(:,:,1)
+          if (trim(vars(n)%var_grid) == 'Cv')fields(nn,:,:) = vecpair(:,:,2)
        end if
     end do
 
@@ -206,15 +206,15 @@ contains
     call getfield(fname, vname1, dims=dims, field=vecpair(:,:,1), wgts=trim(wgtsfile))
     wgtsfile = trim(wdir)//'tripole.'//trim(fsrc)//'.'//vgrid2//'.to.Ct.bilinear.nc'
     call getfield(fname, vname2, dims=dims, field=vecpair(:,:,2), wgts=trim(wgtsfile))
-
+    !nbilin3d,nlevs,nxt*nyt
     do k = 1,dims(3)
        urot = 0.0; vrot = 0.0
        do ii = 1,dims(1)*dims(2)
-          urot(ii)= vecpair(ii,k,1)*cosrot(ii) + vecpair(ii,k,2)*sinrot(ii)
-          vrot(ii)= vecpair(ii,k,2)*cosrot(ii) - vecpair(ii,k,1)*sinrot(ii)
+          urot(ii)= vecpair(k,ii,1)*cosrot(ii) + vecpair(k,ii,2)*sinrot(ii)
+          vrot(ii)= vecpair(k,ii,2)*cosrot(ii) - vecpair(k,ii,1)*sinrot(ii)
        end do
-       vecpair(:,k,1) = urot(:)
-       vecpair(:,k,2) = vrot(:)
+       vecpair(k,:,1) = urot(:)
+       vecpair(k,:,2) = vrot(:)
     end do
 
     if (debug) write(logunit,'(a)')'exit '//trim(subname)
@@ -275,14 +275,16 @@ contains
     if (debug)write(logunit,'(a)')'enter '//trim(subname)//' variable '//vname
 
     allocate(a3d(dims(1),dims(2),dims(3))); a3d = 0.0
-    allocate(atmp(dims(1)*dims(2),dims(3))); atmp = 0.0
+    allocate(atmp(dims(3),dims(1)*dims(2))); atmp = 0.0
 
     call nf90_err(nf90_open(fname, nf90_nowrite, ncid), 'nf90_open: '//fname)
     call nf90_err(nf90_inq_varid(ncid, vname, varid), 'get variable ID: '//vname)
     call nf90_err(nf90_get_var(ncid, varid, a3d), 'get variable: '//vname)
     call nf90_err(nf90_close(ncid), 'close: '//fname)
 
-    atmp(:,:) = reshape(a3d, (/dims(1)*dims(2),dims(3)/))
+    do k = 1,dims(3)
+       atmp(k,:) = reshape(a3d(1:dims(1),1:dims(2),k), (/dims(1)*dims(2)/))
+    end do
     if(present(wgts)) then
        call remap(trim(wgts), dim2=dims(3), src_field=atmp, dst_field=field)
     else
@@ -385,7 +387,7 @@ contains
     dst_field = 0.0
     do i = 1,n_s
        ii = row(i); jj = col(i)
-       dst_field(ii,:) = dst_field(ii,:) + S(i)*src_field(jj,:)
+       dst_field(:,ii) = dst_field(:,ii) + S(i)(src_field(:,jj)
     enddo
 
     if (debug) write(logunit,'(a)')'exit '//trim(subname)
@@ -435,7 +437,7 @@ contains
     dst_field = 0.0
     do i = 1,n_s
        ii = row(i); jj = col(i)
-       dst_field(ii,:,:) = dst_field(ii,:,:) + S(i)*src_field(jj,:,:)
+       dst_field(:,:,ii) = dst_field(:,:,ii) + S(i)*src_field(:,:,jj)
     enddo
 
     if (debug) write(logunit,'(a)')'exit '//trim(subname)
@@ -466,7 +468,9 @@ contains
     call nf90_err(nf90_def_var(ncid, vname, nf90_float, (/idimid,jdimid,fdimid/), varid), 'define variable: '//vname)
     call nf90_err(nf90_enddef(ncid), 'nf90_enddef: '//fname)
 
-    a3d(:,:,:) =  reshape(field(1:dims(1)*dims(2),1:nflds), (/dims(1),dims(2),nflds/))
+    do k = 1,nflds
+       a3d(:,:,k) = reshape(field(k,1:dims(1)*dims(2)), (/dims(1),dims(2)/))
+    end do
     call nf90_err(nf90_put_var(ncid, varid, a3d), 'put variable: '//vname)
     call nf90_err(nf90_close(ncid), 'close: '//fname)
 
@@ -484,7 +488,7 @@ contains
     real(kind=8),     intent(in) :: field(:,:,:)
 
     ! local variable
-    integer :: n, ncid, varid, rc, idimid, jdimid, kdimid, fdimid
+    integer :: n, k, ncid, varid, rc, idimid, jdimid, kdimid, fdimid
     real(kind=8), allocatable :: a4d(:,:,:,:)
     character(len=20) :: subname = 'dumpnc3d'
 
@@ -500,7 +504,9 @@ contains
     call nf90_err(nf90_enddef(ncid), 'nf90_enddef: '//fname)
 
     do n = 1,nflds
-       a4d(:,:,:,n) = reshape(field(1:dims(1)*dims(2),1:dims(3),n), (/dims(1),dims(2),dims(3)/))
+       do k = 1,dims(3)
+          a4d(:,:,k,n) = reshape(field(n,k,1:dims(1)*dims(2)), (/dims(1),dims(2)/))
+       end do
     end do
     call nf90_err(nf90_put_var(ncid, varid, a4d), 'put variable: '//vname)
     call nf90_err(nf90_close(ncid), 'close: '//fname)
@@ -518,7 +524,7 @@ contains
     real(kind=8),     intent(in) :: field(:,:)
 
     ! local variable
-    integer                   :: ncid, varid, rc, idimid, jdimid, kdimid
+    integer                   :: k, ncid, varid, rc, idimid, jdimid, kdimid
     real(kind=8), allocatable :: a3d(:,:,:)
     character(len=20)         :: subname = 'dumpnc3dk'
 
@@ -532,7 +538,9 @@ contains
     call nf90_err(nf90_def_var(ncid, vname, nf90_float, (/idimid,jdimid,kdimid/), varid), 'define variable: '//vname)
     call nf90_err(nf90_enddef(ncid), 'nf90_enddef: '//fname)
 
-    a3d(:,:,:) =  reshape(field(1:dims(1)*dims(2),1:dims(3)), (/dims(1),dims(2),dims(3)/))
+    do k = 1,dims(3)
+       a3d(:,:,k) =  reshape(field(k,1:dims(1)*dims(2)), (/dims(1),dims(2)/))
+    end do
     call nf90_err(nf90_put_var(ncid, varid, a3d), 'put variable: '//vname)
     call nf90_err(nf90_close(ncid), 'close: '//fname)
 
