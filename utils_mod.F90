@@ -56,7 +56,7 @@ contains
 
     ! local variables
     integer                   :: n, nn
-    real, allocatable, dimension(:,:) :: vecpair
+    real(kind=8), allocatable, dimension(:,:) :: vecpair
     character(len=20)         :: subname = 'packarrays2d'
 
     fields=0.0
@@ -108,7 +108,7 @@ contains
 
     ! local variables
     integer                   :: n, nn
-    real, allocatable, dimension(:,:,:) :: vecpair
+    real(kind=8), allocatable, dimension(:,:,:) :: vecpair
     character(len=20)         :: subname = 'packarrays3d'
 
     fields=0.0
