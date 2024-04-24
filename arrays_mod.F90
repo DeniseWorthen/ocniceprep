@@ -6,6 +6,8 @@ module arrays_mod
 
   implicit none
 
+  real(kind=8), parameter :: maskspval = 1.0e36 ! spval for RH mask values
+
   integer :: nbilin2d     !< the number of 2D fields mapped bilinearly
   integer :: nbilin3d     !< the number of 3D fields mapped bilinearly
   integer :: nconsd2d     !< the number of 2D fields mapped conservatively
@@ -14,6 +16,8 @@ module arrays_mod
   real(kind=8), allocatable, dimension(:,:)   :: bilin2d  !< packed 2D source fields for bilinear remap
   real(kind=8), allocatable, dimension(:,:)   :: consd2d  !< packed 2D source fields for conservative remap
   real(kind=8), allocatable, dimension(:,:,:) :: bilin3d  !< packed 3D source fields for bilinear remap
+
+  real(kind=8), allocatable, dimension(:,:)   :: mask3d     !< the 3D mask of the source fields on Ct grid points
 
   type(vardefs), allocatable, dimension(:) :: b2d !< variable metadata for 2D source fields bilinear remap
   type(vardefs), allocatable, dimension(:) :: c2d !< variable metadata for 2D source fields conservative remap
@@ -24,8 +28,8 @@ module arrays_mod
   real(kind=8), allocatable, dimension(:,:)   :: rgc2d !< packed 2D fields with conservative remap
   real(kind=8), allocatable, dimension(:,:,:) :: rgb3d !< packed 3D fields with bilinear remap
 
-  real(kind=8), allocatable, dimension(:,:)  :: dstlon !< the destination grid longitudes
-  real(kind=8), allocatable, dimension(:,:)  :: dstlat !< the destination grid latitudes
+  !real(kind=8), allocatable, dimension(:,:)  :: dstlon !< the destination grid longitudes
+  !real(kind=8), allocatable, dimension(:,:)  :: dstlat !< the destination grid latitudes
 
   public setup_packing
 

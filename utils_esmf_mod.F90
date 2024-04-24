@@ -4,18 +4,20 @@ module utils_esmf_mod
   use netcdf
   use init_mod  , only : debug, logunit, vardefs, fsrc, fdst, ftype, nxr, nyr
   use utils_mod , only : dumpnc, remap
+  use arrays_mod, only : maskspval, mask3d
 
   implicit none
 
   private
 
   type(ESMF_RouteHandle) :: rh
+  type(ESMF_DynamicMask) :: dynamicLevMask
   type(ESMF_Mesh)        :: meshsrc, meshdst
   type(ESMF_Field)       :: fldsrc, flddst
 
   interface remapRH
      module procedure remapRH2d
-     module procedure remapRH3d
+     module procedure remapRHdyn
   end interface remapRH
 
   interface rotremap
@@ -41,6 +43,7 @@ contains
 
     ! local variables
     real(kind=8) , pointer  :: srcptr(:), dstptr(:)
+    integer :: srcTermProcessing = 0
 
     meshsrc = ESMF_MeshCreate(filename=trim(srcmeshfile), fileformat=ESMF_FILEFORMAT_ESMFMESH, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
@@ -59,9 +62,15 @@ contains
          extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_IDAVG,         &
          polemethod=ESMF_POLEMETHOD_ALLAVG,                    &
          ignoreDegenerate=.true.,                              &
+         srcTermProcessing=srcTermProcessing,                  &
          !dstStatusField=dststatusfield,                       &
          unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+    ! Create a dynamic mask object
+    call ESMF_DynamicMaskSetR8R8R8(dynamicLevMask, dynamicSrcMaskValue=maskspval, &
+         dynamicMaskRoutine=DynLevMaskProc, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
 
   end subroutine createRH
 
@@ -70,12 +79,12 @@ contains
   !----------------------------------------------------------
   subroutine remapRH2d(src_field,dst_field)
 
-    real(kind=8), intent(in)  :: src_field(:,:)
-    real(kind=8), intent(out) :: dst_field(:,:)
+    real(kind=8),    intent(in)           :: src_field(:,:)
+    real(kind=8),    intent(out)          :: dst_field(:,:)
 
     integer               :: rc
     real(kind=8), pointer :: srcptr(:,:), dstptr(:,:)
-    character(len=20)     :: subname = 'remap2dRH'
+    character(len=20)     :: subname = 'remapRH2d'
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)
 
@@ -102,32 +111,102 @@ contains
   end subroutine remapRH2d
 
   !----------------------------------------------------------
-  ! remap a R8 packed field of nlen,nlevs,nflds via ESMF RH
+  ! remap a R8 packed field of nlen,nflds via ESMF RH
+  ! with dyanmic masking
+  ! !(nx*ny,nlevs,nfields)
   !----------------------------------------------------------
-  subroutine remapRH3d(src_field,dst_field)
+  subroutine remapRHdyn(src_field,dst_field,hmask)
 
-    real(kind=8), intent(in)  :: src_field(:,:,:)
-    real(kind=8), intent(out) :: dst_field(:,:,:)
+    !nx*ny,nfields
+    real(kind=8), intent(in)  :: src_field(:,:)
+    real(kind=8), intent(in)  :: hmask(:)
+    real(kind=8), intent(out) :: dst_field(:,:)
 
-    integer               :: rc
-    real(kind=8), pointer :: srcptr(:,:,:), dstptr(:,:,:)
-    character(len=20)     :: subname = 'remap3dRH'
+    integer               :: n,rc
+    real(kind=8), pointer :: srcptr(:,:), dstptr(:,:)
+    character(len=20)     :: subname = 'remapRHdyn'
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)
 
-    ! fldsrc = ESMF_FieldCreate(meshsrc, farrayPtr=srcptr, meshloc=ESMF_MESHLOC_ELEMENT, &
-    !      ungriddedLbound=(/1/), ungriddedUbound=(/size(src_field,2)/),       &
-    !      gridToFieldMap=(/1/), rc=rc)
-    ! if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    ! flddst = ESMF_FieldCreate(meshdst, farrayPtr=dstptr, meshloc=ESMF_MESHLOC_ELEMENT, &
-    !      ungriddedLbound=(/1/), ungriddedUbound=(/size(dst_field,2)/),       &
-    !      gridToFieldMap=(/1/), rc=rc)
-    ! if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    fldsrc = ESMF_FieldCreate(meshsrc, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, &
+         ungriddedLbound=(/1/), ungriddedUbound=(/size(src_field,2)/),       &
+         gridToFieldMap=(/1/), rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    flddst = ESMF_FieldCreate(meshdst, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, &
+         ungriddedLbound=(/1/), ungriddedUbound=(/size(dst_field,2)/),       &
+         gridToFieldMap=(/1/), rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
-    ! call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, rc=rc)
-    ! if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    call ESMF_FieldGet(fldsrc, farrayptr=srcptr, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+    call ESMF_FieldGet(flddst, farrayptr=dstptr, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
 
-  end subroutine remapRH3d
+    srcptr = src_field
+    do n = 1,ubound(src_field,2)
+       where(hmask .eq. maskspval)srcptr(:,n) = maskspval
+    end do
+    dstptr = maskspval
+
+    call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, dynamicMask=dynamicLevMask, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+    dst_field = dstptr
+
+  end subroutine remapRHdyn
+
+  ! !----------------------------------------------------------
+  ! ! remap a R8 packed field of nlen,nflds via ESMF RH with
+  ! ! dynamic masking on nlev
+  ! !----------------------------------------------------------
+  ! subroutine remapRH3d(src_field,dst_field,hmask)
+
+  !   real(kind=8), intent(in)  :: src_field(:,:)
+  !   real(kind=8), intent(in)  :: hmask(:)
+  !   real(kind=8), intent(out) :: dst_field(:,:)
+
+  !   integer               :: rc
+  !   real(kind=8), pointer :: srcptr(:,:), dstptr(:,:)
+  !   character(len=20)     :: subname = 'remap3dRH'
+
+  !   if (debug)write(logunit,'(a)')'enter '//trim(subname)
+
+  !   fldsrc = ESMF_FieldCreate(meshsrc, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, &
+  !        ungriddedLbound=(/1/), ungriddedUbound=(/size(src_field,2)/),       &
+  !        gridToFieldMap=(/1/), rc=rc)
+  !   if (ChkErr(rc,__LINE__,u_FILE_u)) return
+  !   flddst = ESMF_FieldCreate(meshdst, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, &
+  !        ungriddedLbound=(/1/), ungriddedUbound=(/size(dst_field,2)/),       &
+  !        gridToFieldMap=(/1/), rc=rc)
+  !   if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+  !   call ESMF_FieldGet(fldsrc, farrayptr=srcptr, rc=rc)
+  !   if (chkerr(rc,__LINE__,u_FILE_u)) return
+  !   call ESMF_FieldGet(flddst, farrayptr=dstptr, rc=rc)
+  !   if (chkerr(rc,__LINE__,u_FILE_u)) return
+
+  !   dstptr = 0.0
+  !   srcptr = src_field
+  !   call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, rc=rc)
+  !   if (ChkErr(rc,__LINE__,u_FILE_u)) return
+  !   dst_field = dstptr
+
+
+
+  !   ! fldsrc = ESMF_FieldCreate(meshsrc, farrayPtr=srcptr, meshloc=ESMF_MESHLOC_ELEMENT, &
+  !   !      ungriddedLbound=(/1/), ungriddedUbound=(/size(src_field,2)/),       &
+  !   !      gridToFieldMap=(/1/), rc=rc)
+  !   ! if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+  !   ! flddst = ESMF_FieldCreate(meshdst, farrayPtr=dstptr, meshloc=ESMF_MESHLOC_ELEMENT, &
+  !   !      ungriddedLbound=(/1/), ungriddedUbound=(/size(dst_field,2)/),       &
+  !   !      gridToFieldMap=(/1/), rc=rc)
+  !   ! if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+  !   ! Do mapping using dynamic masking
+  !   ! call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, dynamicMask=dynamicLevMask, rc=rc)
+  !   ! if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+  ! end subroutine remapRH3d
 
   !----------------------------------------------------------
   ! rotate vectors from EW->IJ and map back to native staggers
@@ -225,6 +304,51 @@ contains
 
     if (debug)write(logunit,'(a)')'exit '//trim(subname)
   end subroutine rotremap3d
+
+  !----------------------------------------------------------
+  !
+  !----------------------------------------------------------
+
+  subroutine dynLevMaskProc(dynamicMaskList, dynamicSrcMaskValue, dynamicDstMaskValue, rc)
+
+    use ESMF, only : ESMF_RC_ARG_BAD
+
+    ! input/output arguments
+    type(ESMF_DynamicMaskElementR8R8R8) , pointer :: dynamicMaskList(:)
+    real(ESMF_KIND_R8), intent(in), optional      :: dynamicSrcMaskValue
+    real(ESMF_KIND_R8), intent(in), optional      :: dynamicDstMaskValue
+    integer           , intent(out)               :: rc
+
+    ! local variables
+    integer  :: i, j
+    real(ESMF_KIND_R8)  :: renorm
+    !---------------------------------------------------------------
+
+    rc = ESMF_SUCCESS
+
+    if (associated(dynamicMaskList)) then
+       do i=1, size(dynamicMaskList)
+          dynamicMaskList(i)%dstElement = 0.0d0 ! set to zero
+          renorm = 0.d0 ! reset
+          do j = 1, size(dynamicMaskList(i)%factor)
+             if (dynamicSrcMaskValue /= dynamicMaskList(i)%srcElement(j)) then
+                dynamicMaskList(i)%dstElement = dynamicMaskList(i)%dstElement + &
+                     (dynamicMaskList(i)%factor(j) * dynamicMaskList(i)%srcElement(j))
+                renorm = renorm + dynamicMaskList(i)%factor(j)
+             endif
+          enddo
+          if (renorm > 0.d0) then
+             dynamicMaskList(i)%dstElement = dynamicMaskList(i)%dstElement / renorm
+          else if (present(dynamicSrcMaskValue)) then
+             dynamicMaskList(i)%dstElement = dynamicSrcMaskValue
+          else
+             rc = ESMF_RC_ARG_BAD  ! error detected
+             return
+          endif
+       enddo
+    endif
+
+  end subroutine DynLevMaskProc
 
   !----------------------------------------------------------
   ! handle ESMF errors

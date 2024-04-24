@@ -7,6 +7,7 @@ program ocniceprep
   use init_mod   ,     only : do_ocnprep, debug, logunit
   use arrays_mod ,     only : b2d, c2d, b3d, rgb2d, rgb3d, rgc2d, setup_packing
   use arrays_mod ,     only : nbilin2d, nbilin3d, nconsd2d, bilin2d, bilin3d, consd2d
+  use arrays_mod ,     only : mask3d, maskspval
   use utils_mod  ,     only : getfield, packarrays, remap, dumpnc, nf90_err
   use utils_esmf_mod , only : createRH, remapRH, ChkErr, rotremap
   use restarts_mod ,   only : setup_icerestart, setup_ocnrestart
@@ -18,8 +19,6 @@ program ocniceprep
   character(len=160) :: wgtsfile
   character(len=160) :: fout
 
-  ! dimensions, units and variables from source file used in creation of
-  ! output netcdf
   real(kind=8), allocatable, dimension(:) :: angsrc         !< the rotation angle at the Ct points for the src grid
   real(kind=8), allocatable, dimension(:) :: angdst         !< the rotation angle at the Ct points for the dst grid
 
@@ -129,20 +128,22 @@ program ocniceprep
   ! get the masking variable for ocean 3-d remapping
   ! --------------------------------------------------------
 
-  ! if (do_ocnprep) then
-  !    allocate(mask3d(nxt*nyt,nlevs)); mask3d = 0.0
-  !    call getfield(trim(input_file), trim(maskvar), dims=(/nxt,nyt,nlevs/), field=mask3d)
+  if (do_ocnprep) then
+     allocate(mask3d(nxt*nyt,nlevs)); mask3d = 0.0
+     call getfield(trim(input_file), 'h', dims=(/nxt,nyt,nlevs/), field=mask3d)
 
-  !    kmask = nlevs
-  !    do k = nlevs,1,-1
-  !       do i = 1,nxt*nyt
-  !          if (mask3d(i,k) .gt. hmin)kmask(i) = k
+     where(mask3d .le. 1.0e-3)mask3d = maskspval
+     where(mask3d .ne. maskspval)mask3d = 1.0
+     call dumpnc(trim(ftype)//'.'//trim(fdst)//'.mask3d.nc', 'mask3d', dims=(/nxt,nyt,nlevs/), field=mask3d)
+  end if
 
   ! --------------------------------------------------------
   ! create packed arrays for mapping and remap packed arrays
   ! to the destination grid
   ! --------------------------------------------------------
 
+  !in reorder branch
+  ! (nbilin2d,nxt*nyt), (nbilin3d,nlevs,nxt*nyt)
   call setup_packing(nvalid,outvars)
 
   ! 2D bilin
@@ -194,9 +195,17 @@ program ocniceprep
      call packarrays(trim(input_file), trim(wgtsdir)//fsrc(3:5)//'/', cos(angsrc), sin(angsrc),         &
           b3d, dims=(/nxt,nyt,nlevs/), nflds=nbilin3d, fields=bilin3d)
      rgb3d = 0.0
-     do n = 1,nlevs
-        call remapRH(src_field=bilin3d(:,n,:), dst_field=rgb3d(:,n,:))
-     end do
+     !call remapRH(src_field=bilin3d, dst_field=rgb3d, srcdims=(/nxt*nyt,nlevs,nbilin3d/),dstdims=(/nxr*nyr,nlevs,nbilin3d/))
+     !(nx*ny,nlevs,nfields)
+     if (do_ocnprep) then
+        do n = 1,nlevs
+           call remapRH(src_field=bilin3d(:,n,:), dst_field=rgb3d(:,n,:),hmask=mask3d(:,n))
+        end do
+     else
+        do n = 1,nlevs
+           call remapRH(src_field=bilin3d(:,n,:), dst_field=rgb3d(:,n,:))
+        end do
+     end if
 
      if (debug) then
         write(logunit,'(a)')'remap 3D fields bilinear with RH'
