@@ -196,16 +196,14 @@ program ocniceprep
           b3d, dims=(/nxt,nyt,nlevs/), nflds=nbilin3d, fields=bilin3d)
      rgb3d = 0.0
      !call remapRH(src_field=bilin3d, dst_field=rgb3d, srcdims=(/nxt*nyt,nlevs,nbilin3d/),dstdims=(/nxr*nyr,nlevs,nbilin3d/))
-     !(nx*ny,nlevs,nfields)
-     if (do_ocnprep) then
-        do n = 1,nlevs
+     !(nflds,nlevs,nlen)
+     do n = 1,nlevs
+        if (do_ocnprep) then
            call remapRH(src_field=bilin3d(:,n,:), dst_field=rgb3d(:,n,:),hmask=mask3d(:,n))
-        end do
-     else
-        do n = 1,nlevs
+        else
            call remapRH(src_field=bilin3d(:,n,:), dst_field=rgb3d(:,n,:))
-        end do
-     end if
+        end if
+     end do
 
      if (debug) then
         write(logunit,'(a)')'remap 3D fields bilinear with RH'

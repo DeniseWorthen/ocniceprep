@@ -75,7 +75,7 @@ contains
   end subroutine createRH
 
   !----------------------------------------------------------
-  ! remap a R8 packed field of nlen,nflds via ESMF RH
+  ! remap a R8 packed field of nflds,nlen via ESMF RH
   !----------------------------------------------------------
   subroutine remapRH2d(src_field,dst_field)
 
@@ -89,12 +89,12 @@ contains
     if (debug)write(logunit,'(a)')'enter '//trim(subname)
 
     fldsrc = ESMF_FieldCreate(meshsrc, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, &
-         ungriddedLbound=(/1/), ungriddedUbound=(/size(src_field,2)/),       &
-         gridToFieldMap=(/1/), rc=rc)
+         ungriddedLbound=(/1/), ungriddedUbound=(/size(src_field,1)/),       &
+         gridToFieldMap=(/2/), rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     flddst = ESMF_FieldCreate(meshdst, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, &
-         ungriddedLbound=(/1/), ungriddedUbound=(/size(dst_field,2)/),       &
-         gridToFieldMap=(/1/), rc=rc)
+         ungriddedLbound=(/1/), ungriddedUbound=(/size(dst_field,1)/),       &
+         gridToFieldMap=(/2/), rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     call ESMF_FieldGet(fldsrc, farrayptr=srcptr, rc=rc)
@@ -111,9 +111,9 @@ contains
   end subroutine remapRH2d
 
   !----------------------------------------------------------
-  ! remap a R8 packed field of nlen,nflds via ESMF RH
+  ! remap a R8 packed field of nflds,nlen via ESMF RH
   ! with dyanmic masking
-  ! !(nx*ny,nlevs,nfields)
+  ! !(nflds,nlevs,nlen)
   !----------------------------------------------------------
   subroutine remapRHdyn(src_field,dst_field,hmask)
 
@@ -129,12 +129,12 @@ contains
     if (debug)write(logunit,'(a)')'enter '//trim(subname)
 
     fldsrc = ESMF_FieldCreate(meshsrc, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, &
-         ungriddedLbound=(/1/), ungriddedUbound=(/size(src_field,2)/),       &
-         gridToFieldMap=(/1/), rc=rc)
+         ungriddedLbound=(/1/), ungriddedUbound=(/size(src_field,1)/),       &
+         gridToFieldMap=(/2/), rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     flddst = ESMF_FieldCreate(meshdst, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, &
-         ungriddedLbound=(/1/), ungriddedUbound=(/size(dst_field,2)/),       &
-         gridToFieldMap=(/1/), rc=rc)
+         ungriddedLbound=(/1/), ungriddedUbound=(/size(dst_field,1)/),       &
+         gridToFieldMap=(/2/), rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     call ESMF_FieldGet(fldsrc, farrayptr=srcptr, rc=rc)
@@ -143,8 +143,8 @@ contains
     if (chkerr(rc,__LINE__,u_FILE_u)) return
 
     srcptr = src_field
-    do n = 1,ubound(src_field,2)
-       where(hmask .eq. maskspval)srcptr(:,n) = maskspval
+    do n = 1,ubound(src_field,1)
+       where(hmask .eq. maskspval)srcptr(n,:) = maskspval
     end do
     dstptr = maskspval
 
