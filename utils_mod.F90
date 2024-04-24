@@ -387,7 +387,7 @@ contains
     dst_field = 0.0
     do i = 1,n_s
        ii = row(i); jj = col(i)
-       dst_field(:,ii) = dst_field(:,ii) + S(i)(src_field(:,jj)
+       dst_field(:,ii) = dst_field(:,ii) + S(i)*src_field(:,jj)
     enddo
 
     if (debug) write(logunit,'(a)')'exit '//trim(subname)
@@ -454,7 +454,7 @@ contains
     real(kind=8),     intent(in) :: field(:,:)
 
     ! local variable
-    integer                   :: ncid, varid, rc, idimid, jdimid, fdimid
+    integer                   :: n, ncid, varid, rc, idimid, jdimid, fdimid
     real(kind=8), allocatable :: a3d(:,:,:)
     character(len=20)         :: subname = 'dumpnc2d'
 
@@ -468,8 +468,8 @@ contains
     call nf90_err(nf90_def_var(ncid, vname, nf90_float, (/idimid,jdimid,fdimid/), varid), 'define variable: '//vname)
     call nf90_err(nf90_enddef(ncid), 'nf90_enddef: '//fname)
 
-    do k = 1,nflds
-       a3d(:,:,k) = reshape(field(k,1:dims(1)*dims(2)), (/dims(1),dims(2)/))
+    do n = 1,nflds
+       a3d(:,:,n) = reshape(field(n,1:dims(1)*dims(2)), (/dims(1),dims(2)/))
     end do
     call nf90_err(nf90_put_var(ncid, varid, a3d), 'put variable: '//vname)
     call nf90_err(nf90_close(ncid), 'close: '//fname)
