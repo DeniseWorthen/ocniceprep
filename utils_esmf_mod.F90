@@ -58,8 +58,11 @@ contains
     call ESMF_FieldRegridStore(fldsrc, flddst, routehandle=rh, &
          srcMaskValues=(/0/),                                  &
          dstMaskValues=(/0/),                                  &
-         regridmethod=ESMF_REGRIDMETHOD_BILINEAR,              &
-         extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_IDAVG,         &
+         regridmethod=ESMF_REGRIDMETHOD_NEAREST_STOD,          &
+         !regridmethod=ESMF_REGRIDMETHOD_BILINEAR,              &
+         !extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_D,             &
+         !extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_IDAVG,         &
+         !extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_STOD,          &
          polemethod=ESMF_POLEMETHOD_ALLAVG,                    &
          ignoreDegenerate=.true.,                              &
          srcTermProcessing=srcTermProcessing,                  &
@@ -97,12 +100,16 @@ contains
          gridToFieldMap=(/2/), rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
+    call ESMF_FieldFill(fldsrc, dataFillScheme="const", const1=0.d0, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    call ESMF_FieldFill(flddst, dataFillScheme="const", const1=0.d0, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
     call ESMF_FieldGet(fldsrc, farrayptr=srcptr, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) return
     call ESMF_FieldGet(flddst, farrayptr=dstptr, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) return
 
-    dstptr = 0.0
     srcptr = src_field
     call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
@@ -115,18 +122,19 @@ contains
   ! with dyanmic masking
   ! !(nflds,nlevs,nlen)
   !----------------------------------------------------------
-  subroutine remapRHdyn(src_field,dst_field,hmask)
+  subroutine remapRHdyn(kk,src_field,dst_field,hmask)
 
-    !nx*ny,nfields
+    !nflds,nlen
+    integer,      intent(in)  :: kk
     real(kind=8), intent(in)  :: src_field(:,:)
     real(kind=8), intent(in)  :: hmask(:)
     real(kind=8), intent(out) :: dst_field(:,:)
 
-    integer               :: n,rc
+    integer               :: i,n,rc
     real(kind=8), pointer :: srcptr(:,:), dstptr(:,:)
     character(len=20)     :: subname = 'remapRHdyn'
 
-    if (debug)write(logunit,'(a)')'enter '//trim(subname)
+    if (debug)write(logunit,'(a,i5)')'enter '//trim(subname)//' ',kk
 
     fldsrc = ESMF_FieldCreate(meshsrc, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, &
          ungriddedLbound=(/1/), ungriddedUbound=(/size(src_field,1)/),       &
@@ -142,71 +150,28 @@ contains
     call ESMF_FieldGet(flddst, farrayptr=dstptr, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) return
 
+    call ESMF_FieldFill(fldsrc, dataFillScheme="const", const1=0.d0, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    call ESMF_FieldFill(flddst, dataFillScheme="const", const1=0.d0, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    !print *,ubound(src_field,1),ubound(src_field,2)
+    !print *,ubound(dst_field,1),ubound(dst_field,2)
+
     srcptr = src_field
-    do n = 1,ubound(src_field,1)
-       where(hmask .eq. maskspval)srcptr(n,:) = maskspval
+    do n = 1,ubound(src_field,2)
+       do i = 1,ubound(src_field,1)
+          if(hmask(n) .eq. maskspval)srcptr(i,n) = maskspval
+          if(i.eq.1.and.n.eq.162778)print '(2i6,3g14.4)',kk,i,hmask(n),src_field(1,n),srcptr(1,n)
+       end do
     end do
-    dstptr = maskspval
 
     call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, dynamicMask=dynamicLevMask, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
     dst_field = dstptr
 
+    if (debug)write(logunit,'(a,i5)')'exit '//trim(subname)//' ',kk
   end subroutine remapRHdyn
-
-  ! !----------------------------------------------------------
-  ! ! remap a R8 packed field of nlen,nflds via ESMF RH with
-  ! ! dynamic masking on nlev
-  ! !----------------------------------------------------------
-  ! subroutine remapRH3d(src_field,dst_field,hmask)
-
-  !   real(kind=8), intent(in)  :: src_field(:,:)
-  !   real(kind=8), intent(in)  :: hmask(:)
-  !   real(kind=8), intent(out) :: dst_field(:,:)
-
-  !   integer               :: rc
-  !   real(kind=8), pointer :: srcptr(:,:), dstptr(:,:)
-  !   character(len=20)     :: subname = 'remap3dRH'
-
-  !   if (debug)write(logunit,'(a)')'enter '//trim(subname)
-
-  !   fldsrc = ESMF_FieldCreate(meshsrc, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, &
-  !        ungriddedLbound=(/1/), ungriddedUbound=(/size(src_field,2)/),       &
-  !        gridToFieldMap=(/1/), rc=rc)
-  !   if (ChkErr(rc,__LINE__,u_FILE_u)) return
-  !   flddst = ESMF_FieldCreate(meshdst, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, &
-  !        ungriddedLbound=(/1/), ungriddedUbound=(/size(dst_field,2)/),       &
-  !        gridToFieldMap=(/1/), rc=rc)
-  !   if (ChkErr(rc,__LINE__,u_FILE_u)) return
-
-  !   call ESMF_FieldGet(fldsrc, farrayptr=srcptr, rc=rc)
-  !   if (chkerr(rc,__LINE__,u_FILE_u)) return
-  !   call ESMF_FieldGet(flddst, farrayptr=dstptr, rc=rc)
-  !   if (chkerr(rc,__LINE__,u_FILE_u)) return
-
-  !   dstptr = 0.0
-  !   srcptr = src_field
-  !   call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, rc=rc)
-  !   if (ChkErr(rc,__LINE__,u_FILE_u)) return
-  !   dst_field = dstptr
-
-
-
-  !   ! fldsrc = ESMF_FieldCreate(meshsrc, farrayPtr=srcptr, meshloc=ESMF_MESHLOC_ELEMENT, &
-  !   !      ungriddedLbound=(/1/), ungriddedUbound=(/size(src_field,2)/),       &
-  !   !      gridToFieldMap=(/1/), rc=rc)
-  !   ! if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-  !   ! flddst = ESMF_FieldCreate(meshdst, farrayPtr=dstptr, meshloc=ESMF_MESHLOC_ELEMENT, &
-  !   !      ungriddedLbound=(/1/), ungriddedUbound=(/size(dst_field,2)/),       &
-  !   !      gridToFieldMap=(/1/), rc=rc)
-  !   ! if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
-  !   ! Do mapping using dynamic masking
-  !   ! call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, dynamicMask=dynamicLevMask, rc=rc)
-  !   ! if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
-  ! end subroutine remapRH3d
 
   !----------------------------------------------------------
   ! rotate vectors from EW->IJ and map back to native staggers

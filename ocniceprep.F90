@@ -55,6 +55,13 @@ program ocniceprep
   call readnml
   call readcsv(nvalid)
 
+  ! nn=0
+  ! do j = 1,nyt
+  !    do i = 1,nxt
+  !       nn = nn+1
+  !       if (i.eq.58.and.j.eq.114)print *,nn
+  !    end do
+  ! end do
   ! nn = 0
   ! do j = 1,nyr
   !    do i = 1,nxr
@@ -198,7 +205,7 @@ program ocniceprep
      !(nflds,nlevs,nlen)
      do n = 1,nlevs
         if (do_ocnprep) then
-           !call remapRH(src_field=bilin3d(:,n,:), dst_field=rgb3d(:,n,:),hmask=mask3d(:,n))
+           !call remapRH(n,src_field=bilin3d(:,n,:), dst_field=rgb3d(:,n,:),hmask=mask3d(n,:))
            call remapRH(src_field=bilin3d(:,n,:), dst_field=rgb3d(:,n,:))
         else
            call remapRH(src_field=bilin3d(:,n,:), dst_field=rgb3d(:,n,:))
