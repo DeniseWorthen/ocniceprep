@@ -15,9 +15,13 @@ module utils_esmf_mod
   type(ESMF_Mesh)        :: meshsrc, meshdst
   type(ESMF_Field)       :: fldsrc, flddst
 
+  integer :: srcTermProcessing = 0
+
   interface remapRH
+     module procedure remapRH1d
      module procedure remapRH2d
-     module procedure remapRHdyn
+     module procedure remapRH1ddyn
+     module procedure remapRH2ddyn
   end interface remapRH
 
   interface rotremap
@@ -38,12 +42,15 @@ contains
   !----------------------------------------------------------
   subroutine createRH(srcmeshfile, dstmeshfile,rc)
 
-    character(len=*), intent(in)    :: srcmeshfile, dstmeshfile
-    integer,          intent(inout) :: rc
+    character(len=*), intent(in)  :: srcmeshfile, dstmeshfile
+    integer,          intent(out) :: rc
 
     ! local variables
-    real(kind=8) , pointer  :: srcptr(:), dstptr(:)
-    integer :: srcTermProcessing = 0
+    real(kind=8) , pointer :: srcptr(:), dstptr(:)
+    character(len=20)      :: subname = 'remapRH1d'
+
+    if (debug)write(logunit,'(a)')'enter '//trim(subname)
+    rc = ESMF_SUCCESS
 
     meshsrc = ESMF_MeshCreate(filename=trim(srcmeshfile), fileformat=ESMF_FILEFORMAT_ESMFMESH, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
@@ -58,8 +65,8 @@ contains
     call ESMF_FieldRegridStore(fldsrc, flddst, routehandle=rh, &
          srcMaskValues=(/0/),                                  &
          dstMaskValues=(/0/),                                  &
-         regridmethod=ESMF_REGRIDMETHOD_NEAREST_STOD,          &
-         !regridmethod=ESMF_REGRIDMETHOD_BILINEAR,              &
+         !regridmethod=ESMF_REGRIDMETHOD_NEAREST_STOD,          &
+         regridmethod=ESMF_REGRIDMETHOD_BILINEAR,              &
          !extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_D,             &
          !extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_IDAVG,         &
          !extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_STOD,          &
@@ -75,21 +82,68 @@ contains
          dynamicMaskRoutine=DynLevMaskProc, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) return
 
+    if (debug)write(logunit,'(a)')'exit '//trim(subname)
   end subroutine createRH
 
   !----------------------------------------------------------
-  ! remap a R8 packed field of nflds,nlen via ESMF RH
+  ! remap a field of nlen via ESMF RH
   !----------------------------------------------------------
-  subroutine remapRH2d(src_field,dst_field)
+  subroutine remapRH1d(kk,src_field,dst_field,rc)
 
-    real(kind=8),    intent(in)           :: src_field(:,:)
-    real(kind=8),    intent(out)          :: dst_field(:,:)
+    integer,      intent(in)  :: kk
+    real(kind=8), intent(in)  :: src_field(:)
+    real(kind=8), intent(out) :: dst_field(:)
+    integer,      intent(out) :: rc
 
-    integer               :: rc
+    real(kind=8), pointer :: srcptr(:), dstptr(:)
+    character(len=20)     :: subname = 'remapRH1d'
+
+    !TODO: set rc=esmf_success, return rc in calls
+    if (debug)write(logunit,'(a,i5)')'enter '//trim(subname)//' ',kk
+    rc = ESMF_SUCCESS
+
+    fldsrc = ESMF_FieldCreate(meshsrc, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT,rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    flddst = ESMF_FieldCreate(meshdst, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT,rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    call ESMF_FieldFill(fldsrc, dataFillScheme="const", const1=0.d0, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    call ESMF_FieldFill(flddst, dataFillScheme="const", const1=0.d0, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    call ESMF_FieldGet(fldsrc, farrayptr=srcptr, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+    call ESMF_FieldGet(flddst, farrayptr=dstptr, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+
+    srcptr = src_field
+    if (ESMF_RouteHandleIsCreated(rh,rc=rc)) then
+       call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    else
+       call ESMF_LogWrite(trim(subname)//": RH not created ", ESMF_LOGMSG_INFO)
+       rc=ESMF_FAILURE
+    end if
+    dst_field = dstptr
+
+    if (debug)write(logunit,'(a,i5)')'exit '//trim(subname)//' ',kk
+  end subroutine remapRH1d
+
+  !----------------------------------------------------------
+  ! remap a packed field of nflds,nlen via ESMF RH
+  !----------------------------------------------------------
+  subroutine remapRH2d(src_field,dst_field,rc)
+
+    real(kind=8), intent(in)  :: src_field(:,:)
+    real(kind=8), intent(out) :: dst_field(:,:)
+    integer,      intent(out) :: rc
+
     real(kind=8), pointer :: srcptr(:,:), dstptr(:,:)
     character(len=20)     :: subname = 'remapRH2d'
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)
+    rc = ESMF_SUCCESS
 
     fldsrc = ESMF_FieldCreate(meshsrc, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, &
          ungriddedLbound=(/1/), ungriddedUbound=(/size(src_field,1)/),       &
@@ -111,30 +165,91 @@ contains
     if (chkerr(rc,__LINE__,u_FILE_u)) return
 
     srcptr = src_field
-    call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, rc=rc)
-    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    if (ESMF_RouteHandleIsCreated(rh,rc=rc)) then
+       call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    else
+       call ESMF_LogWrite(trim(subname)//": RH not created ", ESMF_LOGMSG_INFO)
+       rc=ESMF_FAILURE
+    end if
     dst_field = dstptr
 
+    if (debug)write(logunit,'(a)')'exit '//trim(subname)
   end subroutine remapRH2d
 
   !----------------------------------------------------------
-  ! remap a R8 packed field of nflds,nlen via ESMF RH
-  ! with dyanmic masking
+  ! remap a field of nlen via ESMF RH with dyanmic masking
+  ! !(nlen)
+  !----------------------------------------------------------
+  subroutine remapRH1ddyn(kk,src_field,dst_field,hmask,rc)
+
+    !nflds,nlen
+    integer,      intent(in)  :: kk
+    real(kind=8), intent(in)  :: src_field(:)
+    real(kind=8), intent(in)  :: hmask(:)
+    real(kind=8), intent(out) :: dst_field(:)
+    integer,      intent(out) :: rc
+
+    integer               :: i,n
+    real(kind=8), pointer :: srcptr(:), dstptr(:)
+    character(len=20)     :: subname = 'remapRH1ddyn'
+
+    if (debug)write(logunit,'(a,i5)')'enter '//trim(subname)//' ',kk
+    rc = ESMF_SUCCESS
+
+    fldsrc = ESMF_FieldCreate(meshsrc, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    flddst = ESMF_FieldCreate(meshdst, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    call ESMF_FieldGet(fldsrc, farrayptr=srcptr, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+    call ESMF_FieldGet(flddst, farrayptr=dstptr, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+
+    call ESMF_FieldFill(fldsrc, dataFillScheme="const", const1=0.d0, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    call ESMF_FieldFill(flddst, dataFillScheme="const", const1=0.d0, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    !print *,ubound(src_field,1),ubound(src_field,2)
+    !print *,ubound(dst_field,1),ubound(dst_field,2)
+
+    srcptr = src_field
+    srcptr = 1.0
+    where(hmask .eq. maskspval)srcptr = maskspval
+
+    if (ESMF_RouteHandleIsCreated(rh,rc=rc)) then
+       call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, dynamicMask=dynamicLevMask, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    else
+       call ESMF_LogWrite(trim(subname)//": RH not created ", ESMF_LOGMSG_INFO)
+       rc=ESMF_FAILURE
+    end if
+    dst_field = dstptr
+
+    if (debug)write(logunit,'(a,i5)')'exit '//trim(subname)//' ',kk
+  end subroutine remapRH1ddyn
+
+  !----------------------------------------------------------
+  ! remap a packed field of nflds,nlen via ESMF RH with dyanmic masking
   ! !(nflds,nlevs,nlen)
   !----------------------------------------------------------
-  subroutine remapRHdyn(kk,src_field,dst_field,hmask)
+  subroutine remapRH2ddyn(kk,src_field,dst_field,hmask,rc)
 
     !nflds,nlen
     integer,      intent(in)  :: kk
     real(kind=8), intent(in)  :: src_field(:,:)
     real(kind=8), intent(in)  :: hmask(:)
     real(kind=8), intent(out) :: dst_field(:,:)
+    integer,      intent(out) :: rc
 
-    integer               :: i,n,rc
+    integer               :: i,n
     real(kind=8), pointer :: srcptr(:,:), dstptr(:,:)
-    character(len=20)     :: subname = 'remapRHdyn'
+    character(len=20)     :: subname = 'remapRH2ddyn'
 
     if (debug)write(logunit,'(a,i5)')'enter '//trim(subname)//' ',kk
+    rc = ESMF_SUCCESS
 
     fldsrc = ESMF_FieldCreate(meshsrc, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, &
          ungriddedLbound=(/1/), ungriddedUbound=(/size(src_field,1)/),       &
@@ -166,12 +281,17 @@ contains
        end do
     end do
 
-    call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, dynamicMask=dynamicLevMask, rc=rc)
-    if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
+    if (ESMF_RouteHandleIsCreated(rh,rc=rc)) then
+       call ESMF_FieldRegrid(fldsrc, flddst, routehandle=rh, dynamicMask=dynamicLevMask, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    else
+       call ESMF_LogWrite(trim(subname)//": RH not created ", ESMF_LOGMSG_INFO)
+       rc=ESMF_FAILURE
+    end if
     dst_field = dstptr
 
     if (debug)write(logunit,'(a,i5)')'exit '//trim(subname)//' ',kk
-  end subroutine remapRHdyn
+  end subroutine remapRH2ddyn
 
   !----------------------------------------------------------
   ! rotate vectors from EW->IJ and map back to native staggers
