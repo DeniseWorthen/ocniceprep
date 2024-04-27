@@ -17,9 +17,6 @@ module arrays_mod
   real(kind=8), allocatable, dimension(:,:)   :: consd2d  !< packed 2D source fields for conservative remap
   real(kind=8), allocatable, dimension(:,:,:) :: bilin3d  !< packed 3D source fields for bilinear remap
 
-  real(kind=8), allocatable, dimension(:,:)   :: mask3d     !< the 3D mask of the source fields on Ct grid points
-  real(kind=8), allocatable, dimension(:,:)   :: rgmask3d   !< the 3D mask of the destination fields on Ct grid points
-
   type(vardefs), allocatable, dimension(:) :: b2d !< variable metadata for 2D source fields bilinear remap
   type(vardefs), allocatable, dimension(:) :: c2d !< variable metadata for 2D source fields conservative remap
   type(vardefs), allocatable, dimension(:) :: b3d !< variable metadata for 3D source fields bilinear remap
@@ -29,8 +26,13 @@ module arrays_mod
   real(kind=8), allocatable, dimension(:,:)   :: rgc2d !< packed 2D fields with conservative remap
   real(kind=8), allocatable, dimension(:,:,:) :: rgb3d !< packed 3D fields with bilinear remap
 
-  !real(kind=8), allocatable, dimension(:,:)  :: dstlon !< the destination grid longitudes
-  !real(kind=8), allocatable, dimension(:,:)  :: dstlat !< the destination grid latitudes
+  ! source and destination masking arrays
+  real(kind=8), allocatable, dimension(:,:)   :: mask3d     !< the 3D mask of the source fields on Ct grid points
+  real(kind=8), allocatable, dimension(:,:)   :: rgmask3d   !< the 3D mask of the destination fields on Ct grid points
+
+  ! source and destination eta arrays
+  real(kind=8), allocatable, dimension(:,:)   :: eta3d     !< the 3D eta on the source grid
+  real(kind=8), allocatable, dimension(:,:)   :: rgeta3d   !< the 3D eta on the destination grid
 
   public setup_packing
 

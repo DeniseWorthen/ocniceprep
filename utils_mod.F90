@@ -1,7 +1,8 @@
 module utils_mod
 
   use netcdf
-  use init_mod, only : debug, logunit, vardefs, fsrc
+  use arrays_mod, only : eta3d
+  use init_mod,   only : debug, logunit, vardefs, fsrc
 
   implicit none
 
@@ -39,9 +40,81 @@ module utils_mod
   public packarrays
   public remap
   public dumpnc
+  public calc_eta
   public nf90_err
 
 contains
+  !----------------------------------------------------------
+  ! calculate interface heights locally, return eta(nlevs,nxt*nyt)
+  !----------------------------------------------------------
+
+  subroutine calc_eta(fname,dims,bathy,eta)
+
+    character(len=*), intent(in)  :: fname
+    integer,          intent(in)  :: dims(:)
+    real(kind=8),     intent(in)  :: bathy(:)
+    real(kind=8),     intent(out) :: eta(:,:)
+
+    integer :: i,k
+
+    real(kind=8) :: denom
+    real(kind=8), allocatable, dimension(:)   :: ssh,dilate
+    real(kind=8), allocatable, dimension(:,:) :: h
+    real(kind=8), allocatable, dimension(:,:) :: etmp
+
+    character(len=10) :: vname
+    character(len=20) :: subname = 'calc_eta'
+
+    if (debug)write(logunit,'(a)')'enter '//trim(subname)
+
+    allocate(ssh(dims(1)*dims(2))); ssh = 0.0
+    allocate(h(dims(3),dims(1)*dims(2))); h = 0.0
+    allocate(dilate(dims(1)*dims(2))); dilate = 0.0
+    ! note nlevs+1 for local array
+    allocate(etmp(dims(3)+1,dims(1)*dims(2))); etmp = 0.0
+
+    call getfield(trim(fname), 'sfc', (/dims(1),dims(2)/), ssh)
+    call getfield(trim(fname),   'h', (/dims(1),dims(2),dims(3)/), h)
+
+    etmp(dims(3)+1,:) = -bathy(:)
+    do k=dims(3),1,-1
+       etmp(k,:) = etmp(k+1,:) + h(k,:)
+    enddo
+
+    do i = 1,dims(1)*dims(2)
+       denom = etmp(1,i) + bathy(i)
+       if (denom .ne. 0.0) then
+          dilate(i) = (ssh(i) + bathy(i)) / (etmp(1,i) + bathy(i))
+       end if
+    end do
+
+    eta = 0.0
+    do k = 1,dims(3)
+       eta(k,:) = dilate(:)*(etmp(k,:) + bathy(:)) - bathy(:)
+    end do
+
+    !eta(1:dims(3),:) = etmp(1:dims(3),:)
+    !print *,'eta ',minval(eta),maxval(eta)
+    ! do j = 1,nyr
+    !    do i = 1,nxr
+    !       denom = eta(i,j,1)+bathy(i,j)
+    !       if (denom .ne. 0.0)then
+    !          dilate(i) = (ssh(i,j) + bathy(i,j))/(eta(i,j,1)+bathy(i,j))
+    !       else
+    !          dilate(i) = 0.0
+    !       end if
+    !    end do
+    !    do k = 1,nlevs
+    !       do i = 1,nxr
+    !          eta(i,j,k) = dilate(i)*(eta(i,j,k) + bathy(i,j)) - bathy(i,j)
+    !       end do
+    !    end do
+    ! end do
+
+    if (debug)write(logunit,'(a)')'exit '//trim(subname)
+
+  end subroutine calc_eta
+
   !----------------------------------------------------------
   ! pack 2D fields into arrays by mapping type
   !----------------------------------------------------------
@@ -132,8 +205,7 @@ contains
        if (len_trim(vars(n)%var_pair) == 0) then
           nn = nn + 1
           if (trim(vars(n)%var_name) .eq. 'eta') then
-             !call geteta(trim(filesrc),'sfc','h',dims=(/dims(1),dims(2),dims(3)/), fields(nn,:,:)
-             fields(nn,:,:) = 0.0
+             fields(nn,:,:) = eta3d(:,:)
           else
              call getfield(trim(filesrc), trim(vars(n)%var_name), dims=(/dims(1),dims(2),dims(3)/), &
                   field=fields(nn,:,:))

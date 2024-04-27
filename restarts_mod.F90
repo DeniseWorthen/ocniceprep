@@ -3,8 +3,8 @@ module restarts_mod
   use netcdf
   use init_mod   , only : nlevs, nxr, nyr
   use init_mod   , only : debug, logunit
-  use arrays_mod , only : b2d, b3d, rgb2d, rgb3d
-  use arrays_mod , only : nbilin2d, nbilin3d, bilin2d, bilin3d
+  use arrays_mod , only : b2d, c2d, b3d, rgb2d, rgc2d, rgb3d
+  use arrays_mod , only : nbilin2d, nconsd2d, nbilin3d, bilin2d, consd2d, bilin3d
   use utils_mod  , only : nf90_err
 
   implicit none
@@ -70,19 +70,25 @@ contains
     if (debug)write(logunit,'(a)')'exit '//trim(subname)
   end subroutine setup_icerestart
 
-  subroutine setup_ocnrestart(fin, fout, fgrid)
+  subroutine setup_ocnrestart(fin, fout, bathy)
 
-    character(len=*), intent(in) :: fin, fout, fgrid
+    character(len=*), intent(in) :: fin, fout
+    real(kind=8),     intent(in) :: bathy(:)
 
     real(kind=8)              :: timestamp
     character(len= 40)        :: timeunit
     character(len= 20)        :: vname, vunit
     character(len=120)        :: vlong
     real(kind=8), allocatable :: Layer(:)          !< the vertical grid center
+    real(kind=8), allocatable :: out3d(:,:,:)
 
-    integer :: ncid,varid,n,dims3(3),dims4(4)
+    integer :: k,n,ncid,varid,dims3(3),dims4(4)
     integer :: idimid,jdimid,kdimid,edimid,timid
-    real(kind=8), dimension(nxr,nyr) :: lonCt, latCt, lonCu, latCv
+
+    allocate(out3d(nxr,nyr,nlevs+1)); out3d = 0.0
+    do k = 1,nlevs+1
+       out3d(:,:,k) = reshape(-bathy(:), (/nxr,nyr/))
+    end do
 
     call nf90_err(nf90_open(trim(fin), nf90_nowrite, ncid), 'open: '//trim(fin))
     ! get the time and layer information from the input restart file
@@ -118,20 +124,17 @@ contains
           call nf90_err(nf90_put_att(ncid, varid,  'long_name', vlong), 'put variable attribute: long_name')
        enddo
     end if
-!     if (allocated(c2d)) then
-!        do n = 1,nconsd2d
-!           vname = trim(c2d(n)%var_name)
-!           vunit = trim(c2d(n)%units)
-!           vlong = trim(c2d(n)%long_name)
-!           if (trim(c2d(n)%var_grid) == 'Cu') dims3 = (/qidimid,jdimid,timid/)
-!           if (trim(c2d(n)%var_grid) == 'Cv') dims3 = (/idimid,qjdimid,timid/)
-!           if (trim(c2d(n)%var_grid) == 'Ct') dims3 = (/idimid,jdimid,timid/)
-!           call nf90_err(nf90_def_var(ncid, vname, nf90_double, dims3, varid), 'define variable: '// vname)
-!           call nf90_err(nf90_put_att(ncid, varid,      'units', vunit), 'put variable attribute: units' )
-!           call nf90_err(nf90_put_att(ncid, varid,  'long_name', vlong), 'put variable attribute: long_name' )
-!        enddo
-!     end if
-!
+     if (allocated(c2d)) then
+       do n = 1,nconsd2d
+          vname = trim(c2d(n)%var_name)
+          vunit = trim(c2d(n)%units)
+          vlong = trim(c2d(n)%long_name)
+          call nf90_err(nf90_def_var(ncid, vname, nf90_double, (/idimid,jdimid,timid/), varid), 'define variable: '// vname)
+          call nf90_err(nf90_put_att(ncid, varid,      'units', vunit), 'put variable attribute: units' )
+          call nf90_err(nf90_put_att(ncid, varid,  'long_name', vlong), 'put variable attribute: long_name' )
+       enddo
+    end if
+
     if (allocated(b3d)) then
        do n = 1,nbilin3d
           vname = trim(b3d(n)%var_name)
@@ -154,6 +157,9 @@ contains
     ! vertical
     call nf90_err(nf90_inq_varid(ncid, 'Layer', varid), 'get variable Id: Layer')
     call nf90_err(nf90_put_var(ncid, varid, Layer)    , 'put variable: Layer')
+    ! prefill eta(nlevs+1) with -bathy
+    call nf90_err(nf90_inq_varid(ncid, 'eta', varid), 'get variable Id: eta')
+    call nf90_err(nf90_put_var(ncid, varid, out3d)  , 'put variable: eta')
     call nf90_err(nf90_close(ncid), 'close: '//trim(fout))
 
   end subroutine setup_ocnrestart
