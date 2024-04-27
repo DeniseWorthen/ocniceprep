@@ -81,7 +81,7 @@ contains
     real(kind=8), allocatable :: Layer(:)          !< the vertical grid center
 
     integer :: ncid,varid,n,dims3(3),dims4(4)
-    integer :: idimid,jdimid,kdimid,qidimid,qjdimid,timid
+    integer :: idimid,jdimid,kdimid,edimid,timid
     real(kind=8), dimension(nxr,nyr) :: lonCt, latCt, lonCu, latCv
 
     call nf90_err(nf90_open(trim(fin), nf90_nowrite, ncid), 'open: '//trim(fin))
@@ -99,6 +99,7 @@ contains
     call nf90_err(nf90_def_dim(ncid, 'nx', nxr, idimid), 'define dimension: nx')
     call nf90_err(nf90_def_dim(ncid, 'ny', nyr, jdimid), 'define dimension: ny')
     call nf90_err(nf90_def_dim(ncid, 'Layer',  nlevs, kdimid), 'define dimension: Layer')
+    call nf90_err(nf90_def_dim(ncid, 'Interface',  nlevs+1, edimid), 'define dimension: Interface')
     call nf90_err(nf90_def_dim(ncid, 'Time', nf90_unlimited, timid), 'define dimension: Time')
     ! define the time variable
     call nf90_err(nf90_def_var(ncid, 'Time', nf90_double, (/timid/), varid), 'define variable: Time')
@@ -136,7 +137,11 @@ contains
           vname = trim(b3d(n)%var_name)
           vunit = trim(b3d(n)%units)
           vlong = trim(b3d(n)%long_name)
-          call nf90_err(nf90_def_var(ncid, vname, nf90_double, (/idimid,jdimid,kdimid,timid/), varid), 'define variable: '// vname)
+          if (vname .eq. 'eta') then
+             call nf90_err(nf90_def_var(ncid, vname, nf90_double, (/idimid,jdimid,edimid,timid/), varid), 'define variable: '// vname)
+          else
+             call nf90_err(nf90_def_var(ncid, vname, nf90_double, (/idimid,jdimid,kdimid,timid/), varid), 'define variable: '// vname)
+          end if
           call nf90_err(nf90_put_att(ncid, varid,      'units', vunit), 'put variable attribute: units' )
           call nf90_err(nf90_put_att(ncid, varid,  'long_name', vlong), 'put variable attribute: long_name' )
        enddo

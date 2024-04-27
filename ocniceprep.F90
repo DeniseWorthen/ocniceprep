@@ -22,6 +22,10 @@ program ocniceprep
   real(kind=8), allocatable, dimension(:) :: angsrc         !< the rotation angle at the Ct points for the src grid
   real(kind=8), allocatable, dimension(:) :: angdst         !< the rotation angle at the Ct points for the dst grid
 
+  real(kind=8) :: denom
+  real(kind=8), allocatable, dimension(:) :: dilate
+  real(kind=8), allocatable, dimension(:,:) :: bathy, ssh
+  real(kind=8), allocatable, dimension(:,:,:) :: h, eta
   ! work arrays for output netcdf
   real(kind=8), allocatable, dimension(:,:)   :: out2d !< 2D destination grid output array
   real(kind=8), allocatable, dimension(:,:,:) :: out3d !< 3D destination grid output array
@@ -62,13 +66,14 @@ program ocniceprep
   !       if (i.eq.58.and.j.eq.114)print *,nn
   !    end do
   ! end do
-  ! nn = 0
-  ! do j = 1,nyr
-  !    do i = 1,nxr
-  !       nn = nn+1
-  !       if(j.eq.nyr)print *,i,nn
-  !    end do
-  ! end do
+  nn = 0
+  do j = 1,nyr
+     do i = 1,nxr
+        nn = nn+1
+        !if(j.eq.nyr)print *,i,nn
+        if(i.eq.2.and.j.eq.53)print *,nn
+     end do
+  end do
   ! i=114945 : (105,320)
   ! --------------------------------------------------------
   ! create a regrid RH from source to destination
@@ -136,12 +141,17 @@ program ocniceprep
              ', '//trim(outvars(n)%var_pair_grid),', ',n
      end if
      if (do_ocnprep) then
-        call nf90_err(nf90_inq_varid(ncid, trim(outvars(n)%var_name), varid),        &
-             'get variable Id: '//trim(outvars(n)%var_name))
-        call nf90_err(nf90_get_att(ncid, varid,  'long_name', outvars(n)%long_name), &
-             'get variable attribute: long_name '//trim(outvars(n)%var_name))
-        call nf90_err(nf90_get_att(ncid, varid,      'units', outvars(n)%units),     &
-             'get variable attribute: units '//trim(outvars(n)%var_name)        )
+        if (trim(outvars(n)%var_name) .eq. 'eta')then
+           outvars(n)%long_name = 'Interface height'
+           outvars(n)%units = 'm'
+        else
+           call nf90_err(nf90_inq_varid(ncid, trim(outvars(n)%var_name), varid),        &
+                'get variable Id: '//trim(outvars(n)%var_name))
+           call nf90_err(nf90_get_att(ncid, varid,  'long_name', outvars(n)%long_name), &
+                'get variable attribute: long_name '//trim(outvars(n)%var_name))
+           call nf90_err(nf90_get_att(ncid, varid,      'units', outvars(n)%units),     &
+                'get variable attribute: units '//trim(outvars(n)%var_name)        )
+        end if
      end if
   end do
   call nf90_err(nf90_close(ncid), 'close: '//trim(input_file))
@@ -157,6 +167,7 @@ program ocniceprep
 
      do n = 1,nlevs
         call remapRH(n,src_field=mask3d(n,:),dst_field=rgmask3d(n,:),rc=rc)
+        print *,n,rgmask3d(n,18722)
      end do
      where(rgmask3d .gt. 1.0 .or. rgmask3d .eq. 0.0)rgmask3d = maskspval
 
@@ -224,21 +235,35 @@ program ocniceprep
      call packarrays(trim(input_file), trim(wgtsdir)//fsrc(3:5)//'/',                                   &
           cos(angsrc), sin(angsrc), b3d, dims=(/nxt,nyt,nlevs/), nflds=nbilin3d, fields=bilin3d)
      rgb3d = 0.0
+
+     ! if (do_ocnprep) then
+     !    idx1 = 0; idx2 = 0; idx3 = 0
+     !    do n = 1,nbilin2d
+     !       if (trim(b2d(n)%var_name) .eq. 'sfc')idx1 = n
+     !    end do
+     !    do n = 1,nbilin3d
+     !       if (trim(b3d(n)%var_name) .eq.   'h')idx2 = n
+     !       if (trim(b3d(n)%var_name) .eq. 'eta')idx3 = n
+     !    end do
+     !    call calc_eta(bilin2d(idx1,:),bilin3d(idx2,:,:), bilin3d(idx3,:,:))
+     ! end if
+
      !call remapRH(src_field=bilin3d, dst_field=rgb3d, srcdims=(/nxt*nyt,nlevs,nbilin3d/),dstdims=(/nxr*nyr,nlevs,nbilin3d/))
      !(nflds,nlevs,nlen)
      do k = 1,nlevs
         if (do_ocnprep) then
            !call remapRH(n,src_field=bilin3d(:,k,:), dst_field=rgb3d(:,k,:),hmask=mask3d(k,:),rc=rc)
            call remapRH(src_field=bilin3d(:,k,:), dst_field=rgb3d(:,k,:),rc=rc)
+           print *,k,rgb3d(4,k,18722)
         else
            call remapRH(src_field=bilin3d(:,n,:), dst_field=rgb3d(:,n,:),rc=rc)
         end if
      end do
-     do n = 1,nbilin3d
-        if (trim(b3d(n)%var_name) .eq. 'h') then
-           where(rgmask3d(:,:) .eq. maskspval) rgb3d(n,:,:) = 1.0e-3
-        end if
-     end do
+     !do n = 1,nbilin3d
+     !   if (trim(b3d(n)%var_name) .eq. 'h') then
+     !      where(rgmask3d(:,:) .eq. maskspval) rgb3d(n,:,:) = 1.0e-3
+     !   end if
+     !end do
 
      if (debug) then
         write(logunit,'(a)')'remap 3D fields bilinear with RH'
@@ -341,6 +366,54 @@ program ocniceprep
      end do
   end if
   call nf90_err(nf90_close(ncid), 'close: '// trim(fout))
+!#ifdef test
+  ! eta on destination is currently 0, now create the array
+  allocate(dilate(nxr)); dilate = 0.0
+  allocate(bathy(nxr,nyr)); bathy = 0.0
+  allocate(ssh(nxr,nyr)); ssh = 0.0
+  allocate(h(nxr,nyr,nlevs)); h = 0.0
+  allocate(eta(nxr,nyr,nlevs+1)); eta = 0.0
+
+  gridfile = trim(griddir)//fdst(3:5)//'/'//'tripole.'//trim(fdst)//'.nc'
+  call nf90_err(nf90_open(trim(gridfile), nf90_nowrite, ncid), 'nf90_open: '//gridfile)
+  call nf90_err(nf90_inq_varid(ncid, 'depth', varid), 'get variable ID: '//vname)
+  call nf90_err(nf90_get_var(ncid, varid, bathy), 'get variable: '//vname)
+  call nf90_err(nf90_close(ncid), 'close: '//gridfile)
+
+  call nf90_err(nf90_open(trim(fout), nf90_nowrite, ncid), 'nf90_open: '//fout)
+  call nf90_err(nf90_inq_varid(ncid, 'sfc', varid), 'get variable ID: '//vname)
+  call nf90_err(nf90_get_var(ncid, varid, ssh), 'get variable: '//vname)
+  call nf90_err(nf90_inq_varid(ncid, 'h', varid), 'get variable ID: '//vname)
+  call nf90_err(nf90_get_var(ncid, varid, h), 'get variable: '//vname)
+  call nf90_err(nf90_close(ncid), 'close: '//fout)
+
+  eta(:,:,nlevs+1) = -bathy(:,:)
+  do k=nlevs,1,-1
+     eta(:,:,K) = eta(:,:,K+1) + h(:,:,k)
+  enddo
+
+  do j = 1,nyr
+     do i = 1,nxr
+        denom = eta(i,j,1)+bathy(i,j)
+        if (denom .ne. 0.0)then
+           dilate(i) = (ssh(i,j) + bathy(i,j))/(eta(i,j,1)+bathy(i,j))
+        else
+           dilate(i) = 0.0
+        end if
+     end do
+     do k = 1,nlevs
+        do i = 1,nxr
+           eta(i,j,k) = dilate(i)*(eta(i,j,k) + bathy(i,j)) - bathy(i,j)
+        end do
+     end do
+  end do
+
+  vname = 'eta'
+  call nf90_err(nf90_open(trim(fout), nf90_write, ncid), 'nf90_open: '//fout)
+  call nf90_err(nf90_inq_varid(ncid, vname, varid), 'get variable ID: '//vname)
+  call nf90_err(nf90_put_var(ncid,   varid, eta),  'put variable: '//vname)
+  call nf90_err(nf90_close(ncid), 'close: '//fout)
+!#endif
   write(logunit,'(a)')trim(fout)//' done'
 !#endif
   stop

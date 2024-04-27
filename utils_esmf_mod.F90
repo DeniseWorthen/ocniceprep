@@ -68,7 +68,7 @@ contains
          !regridmethod=ESMF_REGRIDMETHOD_NEAREST_STOD,          &
          regridmethod=ESMF_REGRIDMETHOD_BILINEAR,              &
          !extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_D,             &
-         !extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_IDAVG,         &
+         extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_IDAVG,         &
          !extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_STOD,          &
          polemethod=ESMF_POLEMETHOD_ALLAVG,                    &
          ignoreDegenerate=.true.,                              &

@@ -124,14 +124,20 @@ contains
                dims=(/dims(1),dims(2),dims(3)/), vecpair=vecpair)
        end if
     end do
+
     !nbilin3d,nlevs,nxt*nyt
     ! create packed array
     nn = 0
     do n = 1,nflds
        if (len_trim(vars(n)%var_pair) == 0) then
           nn = nn + 1
-          call getfield(trim(filesrc), trim(vars(n)%var_name), dims=(/dims(1),dims(2),dims(3)/), &
-               field=fields(nn,:,:))
+          if (trim(vars(n)%var_name) .eq. 'eta') then
+             !call geteta(trim(filesrc),'sfc','h',dims=(/dims(1),dims(2),dims(3)/), fields(nn,:,:)
+             fields(nn,:,:) = 0.0
+          else
+             call getfield(trim(filesrc), trim(vars(n)%var_name), dims=(/dims(1),dims(2),dims(3)/), &
+                  field=fields(nn,:,:))
+          end if
        else ! fill with vector pairs
           nn = nn+1
           if (trim(vars(n)%var_grid) == 'Cu')fields(nn,:,:) = vecpair(:,:,1)
@@ -141,6 +147,23 @@ contains
 
     if (debug)write(logunit,'(a)')'exit '//trim(subname)
   end subroutine packarrays3d
+
+  ! subroutine get_eta(fname,sfc_vname,hv_name,dims,eta)
+
+  !   character(len=*), intent(in)   :: fname
+  !   character(len=*), intent(in)   :: sfc_vname,h_vname
+  !   integer,          intent(in)   :: dims(:)
+  !   real(kind=8),     intent(out)  :: eta(:,:)
+
+  !   real(kind=8), allocatable, dimension(:)   :: sfc
+  !   real(kind=8), allocatable, dimension(:,:) :: h
+
+  !   allocate(sfc(dims(1)*dims(2)/)); sfc = 0.0
+  !   allocate(h(dims(3),dims(1)*dims(2))); h = 0.0
+  !   call getfield(trim(fname), trim(sfc_vname), dims=(/dims(1),dims(2)/), sfc)
+  !   call getfield(trim(fname), trim(h_vname), dims=(/dims(1),dims(2),dims(3)/), h)
+
+
 
   !----------------------------------------------------------
   ! obtain 2D vector pairs mapped to Ct and rotated to EW
