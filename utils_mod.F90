@@ -93,24 +93,6 @@ contains
        eta(k,:) = dilate(:)*(etmp(k,:) + bathy(:)) - bathy(:)
     end do
 
-    !eta(1:dims(3),:) = etmp(1:dims(3),:)
-    !print *,'eta ',minval(eta),maxval(eta)
-    ! do j = 1,nyr
-    !    do i = 1,nxr
-    !       denom = eta(i,j,1)+bathy(i,j)
-    !       if (denom .ne. 0.0)then
-    !          dilate(i) = (ssh(i,j) + bathy(i,j))/(eta(i,j,1)+bathy(i,j))
-    !       else
-    !          dilate(i) = 0.0
-    !       end if
-    !    end do
-    !    do k = 1,nlevs
-    !       do i = 1,nxr
-    !          eta(i,j,k) = dilate(i)*(eta(i,j,k) + bathy(i,j)) - bathy(i,j)
-    !       end do
-    !    end do
-    ! end do
-
     if (debug)write(logunit,'(a)')'exit '//trim(subname)
 
   end subroutine calc_eta

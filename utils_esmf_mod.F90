@@ -66,10 +66,10 @@ contains
          srcMaskValues=(/0/),                                  &
          dstMaskValues=(/0/),                                  &
          !regridmethod=ESMF_REGRIDMETHOD_NEAREST_STOD,          &
-         regridmethod=ESMF_REGRIDMETHOD_BILINEAR,              &
-         !extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_D,             &
-         extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_IDAVG,         &
          !extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_STOD,          &
+         regridmethod=ESMF_REGRIDMETHOD_BILINEAR,              &
+         extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_IDAVG,         &
+         !extrapMethod=ESMF_EXTRAPMETHOD_NEAREST_D,             &
          polemethod=ESMF_POLEMETHOD_ALLAVG,                    &
          ignoreDegenerate=.true.,                              &
          srcTermProcessing=srcTermProcessing,                  &

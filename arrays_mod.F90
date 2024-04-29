@@ -30,9 +30,8 @@ module arrays_mod
   real(kind=8), allocatable, dimension(:,:)   :: mask3d     !< the 3D mask of the source fields on Ct grid points
   real(kind=8), allocatable, dimension(:,:)   :: rgmask3d   !< the 3D mask of the destination fields on Ct grid points
 
-  ! source and destination eta arrays
+  ! calculated eta on source grid
   real(kind=8), allocatable, dimension(:,:)   :: eta3d     !< the 3D eta on the source grid
-  real(kind=8), allocatable, dimension(:,:)   :: rgeta3d   !< the 3D eta on the destination grid
 
   public setup_packing
 
