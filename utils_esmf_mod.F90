@@ -46,6 +46,8 @@ contains
     integer,          intent(out) :: rc
 
     ! local variables
+    type(ESMF_Field)       :: dststatusfield
+    integer, pointer       :: dststatus(:)
     real(kind=8) , pointer :: srcptr(:), dstptr(:)
     character(len=20)      :: subname = 'remapRH1d'
 
@@ -62,6 +64,11 @@ contains
     flddst = ESMF_FieldCreate(meshdst, ESMF_TYPEKIND_R8, name='mshdst', meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
+    dststatusfield = ESMF_FieldCreate(meshdst, ESMF_TYPEKIND_I4, meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+    call ESMF_FieldGet(dststatusfield, farrayptr=dststatus, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+
     call ESMF_FieldRegridStore(fldsrc, flddst, routehandle=rh, &
          srcMaskValues=(/0/),                                  &
          dstMaskValues=(/0/),                                  &
@@ -73,7 +80,7 @@ contains
          polemethod=ESMF_POLEMETHOD_ALLAVG,                    &
          ignoreDegenerate=.true.,                              &
          srcTermProcessing=srcTermProcessing,                  &
-         !dstStatusField=dststatusfield,                       &
+         dstStatusField=dststatusfield,                        &
          unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
@@ -81,6 +88,10 @@ contains
     call ESMF_DynamicMaskSetR8R8R8(dynamicLevMask, dynamicSrcMaskValue=maskspval, &
          dynamicMaskRoutine=DynLevMaskProc, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) return
+
+    if (debug) then
+       call dumpnc(trim(ftype)//'.'//trim(fdst)//'.dststat.nc', 'dststat', dims=(/nxr,nyr/), field=real(dststatus,8))
+    end if
 
     if (debug)write(logunit,'(a)')'exit '//trim(subname)
   end subroutine createRH

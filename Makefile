@@ -56,6 +56,7 @@ ictest: ocniceprep.o utils_mod.o utils_esmf_mod.o init_mod.o arrays_mod.o restar
 # module dependencies:
 ocniceprep.o: utils_mod.o utils_esmf_mod.o init_mod.o arrays_mod.o restarts_mod.o
 restarts_mod.o: utils_mod.o init_mod.o arrays_mod.o
+arrays_mod.o: init_mod.o
 utils_mod.o: arrays_mod.o init_mod.o
 utils_esmf_mod.o: init_mod.o arrays_mod.o
 init_mod.o:
