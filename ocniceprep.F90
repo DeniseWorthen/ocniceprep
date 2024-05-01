@@ -7,10 +7,11 @@ program ocniceprep
   use init_mod   ,     only : do_ocnprep, debug, logunit
   use arrays_mod ,     only : b2d, c2d, b3d, rgb2d, rgb3d, rgc2d, setup_packing
   use arrays_mod ,     only : nbilin2d, nbilin3d, nconsd2d, bilin2d, bilin3d, consd2d
-  use arrays_mod ,     only : mask3d, rgmask3d, maskspval, eta3d
-  use utils_mod  ,     only : getfield, packarrays, remap, dumpnc, calc_eta, nf90_err
+  use arrays_mod ,     only : mask3d, rgmask3d, maskspval, eta
+  use utils_mod  ,     only : getfield, packarrays, remap, dumpnc, nf90_err
   use utils_esmf_mod , only : createRH, remapRH, ChkErr, rotremap
   use restarts_mod ,   only : setup_icerestart, setup_ocnrestart
+  use auxcalc_mod ,    only : calc_eta, vfill
 
   implicit none
 
@@ -27,17 +28,9 @@ program ocniceprep
 
   real(kind=8) :: min_salin = 0.10
 
-  !real(kind=8), allocatable, dimension(:,:) :: eta          !< the calculated interface heights for the src grid
-
-  !real(kind=8) :: denom
-  !real(kind=8), allocatable, dimension(:) :: dilate
-  !real(kind=8), allocatable, dimension(:,:) :: bathy, ssh
-  !real(kind=8), allocatable, dimension(:,:,:) :: h, eta
   ! work arrays for output netcdf
   real(kind=8), allocatable, dimension(:,:)   :: out2d  !< 2D destination grid output array
   real(kind=8), allocatable, dimension(:,:,:) :: out3d  !< 3D destination grid output array
-
-  integer, allocatable, dimension(:,:) :: klast
 
   character(len=120) :: meshfsrc, meshfdst
 
@@ -80,7 +73,7 @@ program ocniceprep
      do i = 1,nxr
         nn = nn+1
         !if(j.eq.nyr)print *,i,nn
-        if(i.eq.12.and.j.eq.132)print *,nn
+        if(i.eq.101.and.j.eq.125)print *,nn
      end do
   end do
   nn = 0
@@ -138,7 +131,7 @@ program ocniceprep
   ! variable
   ! --------------------------------------------------------
 
-  !TODO: add maskvar name to nml
+  !TODO: add maskvar name and hmin to nml
   call nf90_err(nf90_open(trim(input_file), nf90_nowrite, ncid),                     &
        'open: '//trim(input_file))
   if (do_ocnprep) then
@@ -182,9 +175,9 @@ program ocniceprep
   ! --------------------------------------------------------
 
   if (do_ocnprep) then
-     allocate(eta3d(nlevs,nxt*nyt)); eta3d=0.0
-     call calc_eta(trim(input_file),(/nxt,nyt,nlevs/),bathysrc,eta3d)
-     print *,minval(eta3d),maxval(eta3d)
+     allocate(eta(nlevs,nxt*nyt)); eta=0.0
+     call calc_eta(trim(input_file),(/nxt,nyt,nlevs/),bathysrc)
+     !print *,minval(eta),maxval(eta)
 
      where(mask3d .le. 1.0e-3)mask3d = maskspval
      where(mask3d .ne. maskspval)mask3d = 1.0
@@ -192,12 +185,12 @@ program ocniceprep
 
      do n = 1,nlevs
         call remapRH(n,src_field=mask3d(n,:),dst_field=rgmask3d(n,:),rc=rc)
-        print *,n,rgmask3d(n,47172)
+        !print *,n,rgmask3d(n,47172)
      end do
      where(rgmask3d .gt. 1.0 .or. rgmask3d .eq. 0.0)rgmask3d = maskspval
 
-     call dumpnc(trim(ftype)//'.'//trim(fsrc)//'.eta3d.nc', 'eta3d', &
-          dims=(/nxt,nyt,nlevs/), field=eta3d)
+     call dumpnc(trim(ftype)//'.'//trim(fsrc)//'.eta.nc', 'eta', &
+          dims=(/nxt,nyt,nlevs/), field=eta)
      call dumpnc(trim(ftype)//'.'//trim(fsrc)//'.mask3d.nc', 'mask3d', &
           dims=(/nxt,nyt,nlevs/), field=mask3d)
      call dumpnc(trim(ftype)//'.'//trim(fdst)//'.rgmask3d.nc', 'rgmask3d', &
@@ -262,12 +255,9 @@ program ocniceprep
      call packarrays(trim(input_file), trim(wgtsdir)//fsrc(3:5)//'/',                                   &
           cos(angsrc), sin(angsrc), b3d, dims=(/nxt,nyt,nlevs/), nflds=nbilin3d, fields=bilin3d)
      rgb3d = 0.0
-
-     !(nflds,nlevs,nlen)
      do k = 1,nlevs
         if (do_ocnprep) then
            call remapRH(n,src_field=bilin3d(:,k,:), dst_field=rgb3d(:,k,:), hmask=mask3d(k,:),rc=rc)
-           !call remapRH(src_field=bilin3d(:,k,:), dst_field=rgb3d(:,k,:),rc=rc)
         else
            call remapRH(src_field=bilin3d(:,k,:), dst_field=rgb3d(:,k,:),rc=rc)
         end if
@@ -288,31 +278,7 @@ program ocniceprep
      end if
   end if
   if (do_ocnprep) then
-     allocate(klast(nbilin3d,nxr*nyr)); klast = 1
-
-     do n = 1,nbilin3d
-        do k = 1,nlevs
-           where(rgb3d(n,k,:) .lt. maskspval)klast(n,:) = k
-        end do
-     end do
-
-     do n = 1,nbilin3d
-        do i = 1,nxr*nyr
-           do k = klast(n,i)+1,nlevs
-              if (trim(b3d(n)%var_name) .eq. 'h') then
-                 rgb3d(n,k,i) = 1.0e-3
-              else
-                 rgb3d(n,k,i) = rgb3d(n,klast(n,i)-1,i)
-              end if
-           end do
-        end do
-     end do
-  end if
-
-  if (.not. do_ocnprep) then
-     do n = 1,nbilin3d
-        if (b3d(n)%var_name(1:4) .eq. 'sice')rgb3d(n,:,:) = max(rgb3d(n,:,:), min_salin)
-     end do
+     call vfill()
   end if
 
   !--------------------------------------------------------
@@ -384,7 +350,6 @@ program ocniceprep
      do n = 1,nbilin3d
         do k = 1,nlevs
            out3d(:,:,k) = reshape(rgb3d(n,k,:), (/nxr,nyr/))
-           !print *,n,k,trim(b3d(n)%var_name),minval(out3d),maxval(out3d)
         end do
         ! temp workaround
         if (b3d(n)%var_grid(1:2) == 'Cv') out3d(:,nyr,:) = out3d(:,nyr-1,:)

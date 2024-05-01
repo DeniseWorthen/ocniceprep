@@ -6,7 +6,8 @@ module arrays_mod
 
   implicit none
 
-  real(kind=8), parameter :: maskspval = 1.0e36 ! spval for RH mask values
+  !real(kind=8), parameter :: maskspval = 1.0e36 ! spval for RH mask values
+  real(kind=8), parameter :: maskspval = 9.9692099683868690d+36 ! spval for RH mask values
 
   integer :: nbilin2d     !< the number of 2D fields mapped bilinearly
   integer :: nbilin3d     !< the number of 3D fields mapped bilinearly
@@ -31,7 +32,7 @@ module arrays_mod
   real(kind=8), allocatable, dimension(:,:)   :: rgmask3d   !< the 3D mask of the destination fields on Ct grid points
 
   ! calculated eta on source grid
-  real(kind=8), allocatable, dimension(:,:)   :: eta3d     !< the 3D eta on the source grid
+  real(kind=8), allocatable, dimension(:,:)   :: eta        !< the interface heights (eta) on the source grid
 
   public setup_packing
 
