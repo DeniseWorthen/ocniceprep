@@ -3,15 +3,15 @@ program ocniceprep
   use ESMF
   use netcdf
   use init_mod   ,     only : nxt, nyt, nlevs, nxr, nyr, outvars, readnml, readcsv
-  use init_mod   ,     only : wgtsdir, griddir, ftype, fsrc, fdst, input_file, angvar
-  use init_mod   ,     only : do_ocnprep, debug, logunit
+  use init_mod   ,     only : wgtsdir, griddir, ftype, fsrc, fdst, input_file, angvar, maskvar
+  use init_mod   ,     only : nilyr, nslyr, hmin, do_ocnprep, debug, logunit
   use arrays_mod ,     only : b2d, c2d, b3d, rgb2d, rgb3d, rgc2d, setup_packing
   use arrays_mod ,     only : nbilin2d, nbilin3d, nconsd2d, bilin2d, bilin3d, consd2d
   use arrays_mod ,     only : mask3d, rgmask3d, maskspval, eta
   use utils_mod  ,     only : getfield, packarrays, remap, dumpnc, nf90_err
   use utils_esmf_mod , only : createRH, remapRH, ChkErr, rotremap
   use restarts_mod ,   only : setup_icerestart, setup_ocnrestart
-  use auxcalc_mod ,    only : calc_eta, vfill
+  use ocncalc_mod ,    only : calc_eta, vfill
 
   implicit none
 
@@ -25,8 +25,6 @@ program ocniceprep
 
   real(kind=8), allocatable, dimension(:) :: bathysrc       !< the bottom depth at the Ct points for the src grid
   real(kind=8), allocatable, dimension(:) :: bathydst       !< the bottom depth at the Ct points for the dst grid
-
-  real(kind=8) :: min_salin = 0.10
 
   ! work arrays for output netcdf
   real(kind=8), allocatable, dimension(:,:)   :: out2d  !< 2D destination grid output array
@@ -202,8 +200,6 @@ program ocniceprep
   ! to the destination grid
   ! --------------------------------------------------------
 
-  !in reorder branch
-  ! (nbilin2d,nxt*nyt), (nbilin3d,nlevs,nxt*nyt)
   call setup_packing(nvalid,outvars)
 
   ! 2D bilin

@@ -26,6 +26,7 @@ module init_mod
   character(len=120) :: wgtsdir    !< The directory containing the regridding weights
   character(len=120) :: griddir    !< The directory containing the master tripole grid file
   character(len=20)  :: input_file !< The input file name
+  character(len=10)  :: maskvar    !< The variable in the source file used to create the interpolation mask
 
   ! rotation angles
   character(len=10)  :: angvar    !< The variable in the master tripole file containing the rotation angle
@@ -41,6 +42,7 @@ module init_mod
   logical :: debug      !< If true, print debug messages and intermediate files
   logical :: do_ocnprep !< If true, the source file is ocean, otherwise ice
 
+  real(kind=8), parameter :: hmin = 1.0e-3   !< minimum layer thickness for the ocean
 contains
 
   subroutine readnml
@@ -50,7 +52,7 @@ contains
     integer :: ierr, iounit
     integer :: srcdims(2), dstdims(2)
 
-    namelist /ocniceprep_nml/ ftype, srcdims, wgtsdir, griddir, dstdims, angvar, debug
+    namelist /ocniceprep_nml/ ftype, srcdims, wgtsdir, griddir, dstdims, maskvar, angvar, debug
 
     ! --------------------------------------------------------
     ! read the name list
