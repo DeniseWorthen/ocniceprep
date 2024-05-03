@@ -16,7 +16,7 @@ begin
   ;minlat = 66.0
   minlat = 76.0
   ;minlat = 88.0
-  ;minlat=80.0
+  ;minlat=82.0
   ;vmag = 0.5
   ;vthn = 0.015
   vthn = 0.010
@@ -79,9 +79,9 @@ begin
       grdsrc="/scratch1/NCEPDEV/nems/role.ufsutils/ufs_utils/reg_tests/cpld_gridgen/baseline_data/100/"
       gr = addfile(grdsrc+"tripole.mx100.nc","r")
 
-      fname="ice.mx100.rgbilin2d.Ct.ij.nc"
-      icelonname = "lonCt"
-      icelatname = "latCt"
+      fname="ice.mx100.rgbilin2d.nc"
+      icelonname = "lonBu"
+      icelatname = "latBu"
       print(fname)
       ifile = addfile(fname,"r")
       ut = ifile->rgbilin2d(0,:,:)
@@ -96,8 +96,9 @@ begin
       vt@lat2d=gr->$icelatname$
 
       rotang = tofloat(gr->$anglename$)
-      printVarSummary(rotang)
-      printVarSummary(ut)
+      ;printVarSummary(rotang)
+      ;printVarSummary(ut)
+      rotang = -rotang
       urot = ut
       vrot = vt
       urot = cos(rotang)*ut - sin(rotang)*vt
@@ -108,8 +109,8 @@ begin
       print("urot min = "+min(urot)+" urot max = "+max(urot))
       print("vrot min = "+min(vrot)+" vrot max = "+max(vrot))
 
-      ut = urot
-      vt = vrot
+      ;ut = urot
+      ;vt = vrot
   end if
 
   if (plot_src .eq. 2)then
@@ -117,22 +118,25 @@ begin
     gr = addfile(grdsrc+"tripole.mx100.nc","r")
     vthn=0.0
 
-    fname="testdst.Bu_ij.nc"
+    fname="ice.mx100.nc"
+    ;fname="testdst.Bu_ij.nc"
     icelonname = "lonBu"
     icelatname = "latBu"
     anglename="angle"
     print(fname)
     ifile = addfile(fname,"r")
-      ut = ifile->vecdst(0,:,:)
-      vt = ifile->vecdst(1,:,:)
-
+      ;ut = ifile->vecdst(0,:,:)
+      ;vt = ifile->vecdst(1,:,:)
+      ut = ifile->uvel
+      vt = ifile->vvel
     ut@lon2d=gr->$icelonname$
     ut@lat2d=gr->$icelatname$
     vt@lon2d=gr->$icelonname$
     vt@lat2d=gr->$icelatname$
     rotang = gr->$anglename$
-    printVarSummary(rotang)
+    ;printVarSummary(rotang)
     printVarSummary(ut)
+    rotang = -rotang
     urot = ut
     vrot = vt
     urot = cos(rotang)*ut - sin(rotang)*vt

@@ -24,49 +24,76 @@ begin
 ;************************************************
 
  ; these are EW, on Ct
-  ew = 1
-  fnames = (/"ice.mx025.bilin2d.nc", "ice.mx100.rgbilin2d.nc"/)
-  ftypes = (/"native Ct", "regrid Ct"/)
-  plottitle = (/"source","dest"/)
+  ;ew = 1
+  ;fnames = (/"ice.mx025.bilin2d.nc", "ice.mx100.rgbilin2d.nc"/)
+ ;ftypes = (/"native Ct", "regrid Ct"/)
+  ;icelonname="lonCt"
+  ;icelatname="latCt"
 
-  icelonname="lonCt"
-  icelatname="latCt"
+  ; these are IJ, on Bu
+  ew = 0
+  fnames = (/"ice.nc", "ice.mx100.nc"/)
+  plottitle = (/"source","dest"/)
+  icelonname="lonBu"
+  icelatname="latBu"
 
   fsrc = addfile(fnames(0),"r")
   fdst = addfile(fnames(1),"r")
-
+  print(fnames(0))
+  print(fnames(1))
   gsrc = addfile("/scratch1/NCEPDEV/nems/role.ufsutils/ufs_utils/reg_tests/cpld_gridgen/baseline_data/025/tripole.mx025.nc","r")
   gdst = addfile("/scratch1/NCEPDEV/nems/role.ufsutils/ufs_utils/reg_tests/cpld_gridgen/baseline_data/100/tripole.mx100.nc","r")
 
-  usrc = fsrc->bilin2d(0,:,:)
-  vsrc = fsrc->bilin2d(1,:,:)
-  rotsrc = gsrc->anglet(:,:)
+  ;usrc = fsrc->bilin2d(0,:,:)
+  ;vsrc = fsrc->bilin2d(1,:,:)
+  ;rotsrc = gsrc->anglet(:,:)
+
+  usrc = fsrc->uvel(:,:)
+  vsrc = fsrc->vvel(:,:)
+  rotsrc = gsrc->angle(:,:)
+
   usrc@lon2d=gsrc->$icelonname$
   usrc@lat2d=gsrc->$icelatname$
   vsrc@lon2d=gsrc->$icelonname$
   vsrc@lat2d=gsrc->$icelatname$
   vthnsrc = 0.015
 
-  udst = fdst->rgbilin2d(0,:,:)
-  vdst = fdst->rgbilin2d(1,:,:)
-  rotdst = gdst->anglet(:,:)
+  ;udst = fdst->rgbilin2d(0,:,:)
+  ;vdst = fdst->rgbilin2d(1,:,:)
+ ;rotdst = gdst->anglet(:,:)
+
+  udst = fdst->uvel(:,:)
+  vdst = fdst->vvel(:,:)
+  rotdst = gdst->angle(:,:)
+
   udst@lon2d=gdst->$icelonname$
   udst@lat2d=gdst->$icelatname$
   vdst@lon2d=gdst->$icelonname$
   vdst@lat2d=gdst->$icelatname$
-  vthndst = 0.010
+  vthndst = 0.015
 
  ; if vectors are ij oriented
   if (ew .eq. 0) then
-    urot = utn
-    vrot = vtn
-    urot = cos(rotang)*utn - sin(rotang)*vtn
-    vrot = sin(rotang)*utn + cos(rotang)*vtn
+    urot = udst ; copy metadata
+    vrot = vdst
+    rotang = rotdst
+    urot =  cos(rotang)*udst - sin(rotang)*vdst
+    vrot =  sin(rotang)*udst + cos(rotang)*vdst
+    udst = where(urot@lat2d .ge. minlat, urot, 0.0)
+    vdst = where(vrot@lat2d .ge. minlat, vrot, 0.0)
 
-    urot = where(urot@lat2d .ge. minlat, urot, 0.0)
-    vrot = where(vrot@lat2d .ge. minlat, vrot, 0.0)
+    urot := usrc
+    vrot := vsrc
+    rotang := rotsrc
+    urot =  cos(rotang)*usrc - sin(rotang)*vsrc
+    vrot =  sin(rotang)*usrc + cos(rotang)*vsrc
+    usrc = where(urot@lat2d .ge. minlat, urot, 0.0)
+    vsrc = where(vrot@lat2d .ge. minlat, vrot, 0.0)
   end if
 
+
+  ;urot = cos(rotang)*ut - sin(rotang)*vt
+  ;vrot = sin(rotang)*ut + cos(rotang)*vt
 ;************************************************
 ; add a poly line showing the polar seem along
 ; great circle path from (lon1,lat1) to (lon2,lat2)
@@ -147,7 +174,7 @@ begin
 ; make the panel
 ;************************************************
 
-  gsn_panel(wks,plot,(/1,2/),resP)
+  gsn_panel(wks,plot,(/2,1/),resP)
   frame(wks)
 
 exit

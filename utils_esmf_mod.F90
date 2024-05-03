@@ -332,7 +332,6 @@ contains
 
     vgrid1 = vars(idx1)%var_grid(1:2)
     vgrid2 = vars(idx1)%var_pair_grid(1:2)
-    print *,trim(vgrid1),trim(vgrid2))
 
     allocate(urot(1:dims(1)*dims(2))); urot = 0.0
     allocate(vrot(1:dims(1)*dims(2))); vrot = 0.0

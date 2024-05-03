@@ -4,7 +4,7 @@ program ocniceprep
   use netcdf
   use init_mod   ,     only : nxt, nyt, nlevs, nxr, nyr, outvars, readnml, readcsv
   use init_mod   ,     only : wgtsdir, griddir, ftype, fsrc, fdst, input_file, angvar, maskvar
-  use init_mod   ,     only : nilyr, nslyr, hmin, do_ocnprep, debug, logunit
+  use init_mod   ,     only : hmin, do_ocnprep, debug, logunit
   use arrays_mod ,     only : b2d, c2d, b3d, rgb2d, rgb3d, rgc2d, setup_packing
   use arrays_mod ,     only : nbilin2d, nbilin3d, nconsd2d, bilin2d, bilin3d, consd2d
   use arrays_mod ,     only : mask3d, rgmask3d, maskspval, eta
