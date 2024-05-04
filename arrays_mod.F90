@@ -6,7 +6,6 @@ module arrays_mod
 
   implicit none
 
-  !real(kind=8), parameter :: maskspval = 1.0e36 ! spval for RH mask values
   real(kind=8), parameter :: maskspval = 9.9692099683868690d+36 ! spval for RH mask values
 
   integer :: nbilin2d     !< the number of 2D fields mapped bilinearly
@@ -28,8 +27,10 @@ module arrays_mod
   real(kind=8), allocatable, dimension(:,:,:) :: rgb3d !< packed 3D fields with bilinear remap
 
   ! source and destination masking arrays
-  real(kind=8), allocatable, dimension(:,:)   :: mask3d     !< the 3D mask of the source fields on Ct grid points
-  real(kind=8), allocatable, dimension(:,:)   :: rgmask3d   !< the 3D mask of the destination fields on Ct grid points
+  real(kind=8), allocatable, dimension(:,:)   :: mask3d   !< the 3D mask of the source fields
+                                                          !< on Ct grid points
+  real(kind=8), allocatable, dimension(:,:)   :: rgmask3d !< the 3D mask of the destination fields
+                                                          !< on Ct grid points
 
   ! calculated eta on source grid
   real(kind=8), allocatable, dimension(:,:)   :: eta        !< the interface heights (eta) on the source grid
@@ -57,7 +58,8 @@ contains
           if (vars(n)%var_dimen == 2) nbilin2d = nbilin2d + 1
           if (vars(n)%var_dimen == 3) nbilin3d = nbilin3d + 1
        end if
-       if (trim(vars(n)%var_remapmethod)  == 'conserve')nconsd2d = nconsd2d + 1  !no 3d variables w/ conservative mapping
+       !no 3d variables w/ conservative mapping
+       if (trim(vars(n)%var_remapmethod)  == 'conserve')nconsd2d = nconsd2d + 1
     end do
     if (debug) write(logunit,'(3(a,i4))')'bilin 2d ',nbilin2d,' bilin 3d ',nbilin3d,' conserv 2d ',nconsd2d
 
