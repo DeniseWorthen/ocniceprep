@@ -120,7 +120,7 @@ program ocniceprep
   endif
   do n = 1,nvalid
      if (debug) then
-        write(logunit,'(i4,a12,i4,a10,3(a6),a2)')n,'  '//trim(outvars(n)%var_name)// &
+        write(logunit,'(i4,a12,i4,a10,3(a6),a2)')n,trim(outvars(n)%var_name)//       &
              ', ', outvars(n)%var_dimen,', '//trim(outvars(n)%var_remapmethod),      &
              ', '//trim(outvars(n)%var_grid), ', '//trim(outvars(n)%var_pair),       &
              ', '//trim(outvars(n)%var_pair_grid)
@@ -148,24 +148,40 @@ program ocniceprep
   if (do_ocnprep) then
      allocate(eta(nlevs,nxt*nyt)); eta=0.0
      call calc_eta(trim(input_file),(/nxt,nyt,nlevs/),bathysrc)
+     print *,trim(input_file)
      allocate(mask3d(nlevs,nxt*nyt)); mask3d = 0.0
      call getfield(trim(input_file), trim(maskvar), dims=(/nxt,nyt,nlevs/), field=mask3d)
      where(mask3d .le. real(hmin,4))mask3d = hmin
 
+     do k =29,36
+        print *,'X0 ',k,mask3d(k,194401)
+     end do
+     print *
+     !mask3d = max(mask3d,hmin)
+     !print *,'X1 ',minval(mask3d)
+
      where(mask3d .le. hmin)mask3d = maskspval
+     do k =29,36
+        print *,'X1 ',k,mask3d(k,194401)
+     end do
+     print *
      where(mask3d .ne. maskspval)mask3d = 1.0
+     do k =29,36
+        print *,'X2 ',k,mask3d(k,194401)
+     end do
+     print *
 
      do k =1,nlevs
         print *,k,mask3d(k,194401)
      end do
      if (debug) then
-        call dumpnc(trim(ftype)//'.'//trim(fsrc)//'.eta.nc', 'eta',       &
+        call dumpnc(trim(ftype)//'.'//trim(fsrc)//'.eta.nc', 'eta',           &
              dims=(/nxt,nyt,nlevs/), field=eta)
-        call dumpnc(trim(ftype)//'.'//trim(fsrc)//'.mask3d.nc', 'mask3d', &
+        call dumpnc(trim(ftype)//'.'//trim(fsrc)//'.mask3d.nc', 'mask3d',     &
              dims=(/nxt,nyt,nlevs/), field=mask3d)
      end if
   end if
-
+#ifdef test
   ! --------------------------------------------------------
   ! create packed arrays for mapping and remap packed arrays
   ! to the destination grid
@@ -335,7 +351,7 @@ program ocniceprep
   end if
   call nf90_err(nf90_close(ncid), 'close: '// trim(fout))
   write(logunit,'(a)')trim(fout)//' done'
-
+#endif
   stop
 
 end program ocniceprep
