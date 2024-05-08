@@ -3,7 +3,7 @@ program ocniceprep
   use ESMF
   use netcdf
   use init_mod   ,     only : nxt, nyt, nlevs, nxr, nyr, outvars, readnml, readcsv
-  use init_mod   ,     only : wgtsdir, griddir, ftype, fsrc, fdst, input_file, angvar, maskvar
+  use init_mod   ,     only : wgtsdir, griddir, ftype, fsrc, fdst, input_file, maskvar
   use init_mod   ,     only : do_ocnprep, debug, logunit
   use arrays_mod ,     only : b2d, c2d, b3d, rgb2d, rgb3d, rgc2d, setup_packing
   use arrays_mod ,     only : nbilin2d, nbilin3d, nconsd2d, bilin2d, bilin3d, consd2d
@@ -30,6 +30,7 @@ program ocniceprep
   real(kind=8), allocatable, dimension(:,:)   :: out2d !< 2D destination grid output array
   real(kind=8), allocatable, dimension(:,:,:) :: out3d !< 3D destination grid output array
 
+  character(len=120) :: errmsg
   character(len=120) :: meshfsrc, meshfdst
 
   integer           :: nvalid
@@ -56,7 +57,7 @@ program ocniceprep
   ! variables to be remapped
   ! --------------------------------------------------------
 
-  call readnml
+  call readnml('ocniceprep.nml',errmsg,rc)
   call readcsv(nvalid)
 
   ! --------------------------------------------------------

@@ -26,10 +26,7 @@ module init_mod
   character(len=120) :: wgtsdir    !< The directory containing the regridding weights
   character(len=120) :: griddir    !< The directory containing the master tripole grid file
   character(len=20)  :: input_file !< The input file name
-  character(len=10)  :: maskvar    !< The variable in the source file used to create the interpolation mask
-
-  ! rotation angles
-  character(len=10)  :: angvar    !< The variable in the master tripole file containing the rotation angle
+  character(len=10)  :: maskvar = 'h'    !< The variable in the source file used to create the interpolation mask
 
   integer :: nxt        !< The x-dimension of the source tripole grid
   integer :: nyt        !< The y-dimension of the source tripole grid
@@ -44,34 +41,46 @@ module init_mod
 
 contains
 
-  subroutine readnml
+  subroutine readnml(fname,errmsg,rc)
+
+    character(len=*), intent(in)  :: fname
+    character(len=*), intent(out) :: errmsg
+    integer,          intent(out) :: rc
 
     ! local variable
-    character(len=40) :: fname
+    logical :: exists
     integer :: ierr, iounit
     integer :: srcdims(2), dstdims(2)
 
-    namelist /ocniceprep_nml/ ftype, srcdims, wgtsdir, griddir, dstdims, maskvar, angvar, debug
+    namelist /ocniceprep_nml/ ftype, srcdims, wgtsdir, griddir, dstdims, debug
 
     ! --------------------------------------------------------
     ! read the name list
     ! --------------------------------------------------------
 
     srcdims = 0; dstdims = 0
-    angvar=''
+    errmsg='' ! for successful return
+    rc = 0    ! for successful retun
+    print *,'X0 ',trim(fname)
 
-    fname = 'ocniceprep.nml'
-    inquire (file=trim(fname), iostat=ierr)
-    if (ierr /= 0) then
+    !fname = 'ocniceprep.nml'
+    inquire (file=trim(fname), exist=exists)
+    if (.not. exists) then
        write (0, '(3a)') 'FATAL ERROR: input file "', trim(fname), '" does not exist.'
-       stop 1
-    end if
-
-    ! Open and read namelist file.
-    open (action='read', file=trim(fname), iostat=ierr, newunit=iounit)
-    read (nml=ocniceprep_nml, iostat=ierr, unit=iounit)
-    if (ierr /= 0) then
-       write (6, '(a)') 'Error: invalid namelist format.'
+       !stop 1
+       errmsg='no file'
+       rc=1
+       return
+    else
+       ! Open and read namelist file.
+       open (action='read', file=trim(fname), iostat=ierr, newunit=iounit)
+       read (nml=ocniceprep_nml, iostat=ierr, unit=iounit)
+       if (ierr /= 0) then
+          write (6, '(a)') 'Error: invalid namelist format.'
+          rc=1
+          errmsg = 'bad format'
+          return
+       end if
     end if
     close (iounit)
     nxt = srcdims(1); nyt = srcdims(2)
