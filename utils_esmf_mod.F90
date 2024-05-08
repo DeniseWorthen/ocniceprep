@@ -1,3 +1,9 @@
+!> @file
+!! @brief Define a set of utilty procedures which use ESMF
+!! @author Denise.Worthen@noaa.gov
+!!
+!> This module defines the RouteHandle and mapping procedures
+!! @author Denise.Worthen@noaa.gov
 module utils_esmf_mod
 
   use ESMF
@@ -10,12 +16,12 @@ module utils_esmf_mod
 
   private
 
-  type(ESMF_RouteHandle) :: rh
-  type(ESMF_DynamicMask) :: dynamicLevMask
-  type(ESMF_Mesh)        :: meshsrc, meshdst
-  type(ESMF_Field)       :: fldsrc, flddst
+  type(ESMF_RouteHandle) :: rh             !< an ESMF RouteHandle
+  type(ESMF_DynamicMask) :: dynamicLevMask !< an ESMF dynamicMask object
+  type(ESMF_Mesh)        :: meshsrc        !< an ESMF mesh for the source grid
+  type(ESMF_Mesh)        :: meshdst        !< an ESMF mesh for destination grids
 
-  integer :: srcTermProcessing = 0
+  integer :: srcTermProcessing = 0         !< The source term processing flag, required for Dynamic Masking
 
   interface remapRH
      module procedure remapRH1d
@@ -29,17 +35,20 @@ module utils_esmf_mod
      module procedure rotremap3d
   end interface rotremap
 
-  public createRH
-  public remapRH
-  public rotremap
-  public ChkErr
+  public :: createRH
+  public :: remapRH
+  public :: rotremap
+  public :: ChkErr
 
-  character(len=*), parameter :: u_FILE_u = &
-       __FILE__
+  character(len=*), parameter :: u_FILE_u = __FILE__   !< a character string
 contains
-  !----------------------------------------------------------
-  ! create a RH
-  !----------------------------------------------------------
+  !> Create a RH
+  !!
+  !! @param[in]  srcmeshfile  the file name of the source mesh
+  !! @param[in]  dstmeshfile  the file name of the destination mesh
+  !! @param[out] rc           an error return code
+  !!
+  !! @author Denise.Worthen@noaa.gov
   subroutine createRH(srcmeshfile,dstmeshfile,rc)
 
     character(len=*), intent(in)  :: srcmeshfile
@@ -47,12 +56,14 @@ contains
     integer,          intent(out) :: rc
 
     ! local variables
+    type(ESMF_Field)             :: fldsrc
+    type(ESMF_Field)             :: flddst
     type(ESMF_RegridMethod_Flag) :: regridmethod
     type(ESMF_ExtrapMethod_Flag) :: extrapmethod
     type(ESMF_Field)             :: dststatusfield
     integer, pointer             :: dststatus(:)
-    real(kind=8) , pointer       :: srcptr(:), dstptr(:)
     character(len=20)            :: subname = 'remapRH1d'
+    !----------------------------------------------------------------------------
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)
     rc = ESMF_SUCCESS
@@ -106,9 +117,14 @@ contains
     if (debug)write(logunit,'(a)')'exit '//trim(subname)
   end subroutine createRH
 
-  !----------------------------------------------------------
-  ! remap a field of nlen via ESMF RH
-  !----------------------------------------------------------
+  !> Remap a field of nlen via ESMF RH
+  !!
+  !! @param[in]  kk           the vertical or category index
+  !! @param[in]  src_field    the field on the source grid
+  !! @param[out] dst_field    the field on the destination grid
+  !! @param[out] rc           an error return code
+  !!
+  !! @author Denise.Worthen@noaa.gov
   subroutine remapRH1d(kk,src_field,dst_field,rc)
 
     integer,      intent(in)  :: kk
@@ -116,8 +132,12 @@ contains
     real(kind=8), intent(out) :: dst_field(:)
     integer,      intent(out) :: rc
 
+    ! local variables
+    type(ESMF_Field)      :: fldsrc
+    type(ESMF_Field)      :: flddst
     real(kind=8), pointer :: srcptr(:), dstptr(:)
     character(len=20)     :: subname = 'remapRH1d'
+    !----------------------------------------------------------------------------
 
     if (debug)write(logunit,'(a,i5)')'enter '//trim(subname)//' ',kk
     rc = ESMF_SUCCESS
@@ -127,9 +147,9 @@ contains
     flddst = ESMF_FieldCreate(meshdst, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT,rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
-    call ESMF_FieldFill(fldsrc, dataFillScheme="const", const1=0.d0, rc=rc)
+    call ESMF_FieldFill(fldsrc, dataFillScheme="const", const1=0.0, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    call ESMF_FieldFill(flddst, dataFillScheme="const", const1=0.d0, rc=rc)
+    call ESMF_FieldFill(flddst, dataFillScheme="const", const1=0.0, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     call ESMF_FieldGet(fldsrc, farrayptr=srcptr, rc=rc)
@@ -150,17 +170,25 @@ contains
     if (debug)write(logunit,'(a,i5)')'exit '//trim(subname)//' ',kk
   end subroutine remapRH1d
 
-  !----------------------------------------------------------
-  ! remap a packed field of nflds,nlen via ESMF RH
-  !----------------------------------------------------------
+  !> Remap a packed field of nflds,nlen via ESMF RH
+  !!
+  !! @param[in]  src_field    the field on the source grid
+  !! @param[out] dst_field    the field on the destination grid
+  !! @param[out] rc           an error return code
+  !!
+  !! @author Denise.Worthen@noaa.gov
   subroutine remapRH2d(src_field,dst_field,rc)
 
     real(kind=8), intent(in)  :: src_field(:,:)
     real(kind=8), intent(out) :: dst_field(:,:)
     integer,      intent(out) :: rc
 
+    ! local variables
+    type(ESMF_Field)      :: fldsrc
+    type(ESMF_Field)      :: flddst
     real(kind=8), pointer :: srcptr(:,:), dstptr(:,:)
     character(len=20)     :: subname = 'remapRH2d'
+    !----------------------------------------------------------------------------
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)
     rc = ESMF_SUCCESS
@@ -174,9 +202,9 @@ contains
          gridToFieldMap=(/2/), rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
-    call ESMF_FieldFill(fldsrc, dataFillScheme="const", const1=0.d0, rc=rc)
+    call ESMF_FieldFill(fldsrc, dataFillScheme="const", const1=0.0, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    call ESMF_FieldFill(flddst, dataFillScheme="const", const1=0.d0, rc=rc)
+    call ESMF_FieldFill(flddst, dataFillScheme="const", const1=0.0, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     call ESMF_FieldGet(fldsrc, farrayptr=srcptr, rc=rc)
@@ -197,9 +225,15 @@ contains
     if (debug)write(logunit,'(a)')'exit '//trim(subname)
   end subroutine remapRH2d
 
-  !----------------------------------------------------------
-  ! remap a field of nlen via ESMF RH with dyanmic masking
-  !----------------------------------------------------------
+  !> Remap a field of nlen via ESMF RH with dynamic masking
+  !!
+  !! @param[in]  kk           the vertical or category index
+  !! @param[in]  src_field    the field on the source grid
+  !! @param[in]  hmask        the mask field to use with dynamic masking
+  !! @param[out] dst_field    the field on the destination grid
+  !! @param[out] rc           an error return code
+  !!
+  !! @author Denise.Worthen@noaa.gov
   subroutine remapRH1ddyn(kk,src_field,dst_field,hmask,rc)
 
     !nflds,nlen
@@ -209,9 +243,12 @@ contains
     real(kind=8), intent(out) :: dst_field(:)
     integer,      intent(out) :: rc
 
-    integer               :: i,n
+    ! local variables
+    type(ESMF_Field)      :: fldsrc
+    type(ESMF_Field)      :: flddst
     real(kind=8), pointer :: srcptr(:), dstptr(:)
     character(len=20)     :: subname = 'remapRH1ddyn'
+    !----------------------------------------------------------------------------
 
     if (debug)write(logunit,'(a,i5)')'enter '//trim(subname)//' ',kk
     rc = ESMF_SUCCESS
@@ -226,9 +263,9 @@ contains
     call ESMF_FieldGet(flddst, farrayptr=dstptr, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) return
 
-    call ESMF_FieldFill(fldsrc, dataFillScheme="const", const1=0.d0, rc=rc)
+    call ESMF_FieldFill(fldsrc, dataFillScheme="const", const1=0.0, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    call ESMF_FieldFill(flddst, dataFillScheme="const", const1=0.d0, rc=rc)
+    call ESMF_FieldFill(flddst, dataFillScheme="const", const1=0.0, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     srcptr = src_field
@@ -247,9 +284,15 @@ contains
     if (debug)write(logunit,'(a,i5)')'exit '//trim(subname)//' ',kk
   end subroutine remapRH1ddyn
 
-  !----------------------------------------------------------
-  ! remap a packed field of nflds,nlen via ESMF RH with dyanmic masking
-  !----------------------------------------------------------
+  !> Remap a packed field of nflds,nlen via ESMF RH with dyanmic masking
+  !!
+  !! @param[in]  kk           the vertical or category index
+  !! @param[in]  src_field    the field on the source grid
+  !! @param[in]  hmask        the mask field to use with dynamic masking
+  !! @param[out] dst_field    the field on the destination grid
+  !! @param[out] rc           an error return code
+  !!
+  !! @author Denise.Worthen@noaa.gov
   subroutine remapRH2ddyn(kk,src_field,dst_field,hmask,rc)
 
     integer,      intent(in)  :: kk
@@ -258,9 +301,13 @@ contains
     real(kind=8), intent(out) :: dst_field(:,:)
     integer,      intent(out) :: rc
 
+    ! local variables
+    type(ESMF_Field)      :: fldsrc
+    type(ESMF_Field)      :: flddst
     integer               :: i,n
     real(kind=8), pointer :: srcptr(:,:), dstptr(:,:)
     character(len=20)     :: subname = 'remapRH2ddyn'
+    !----------------------------------------------------------------------------
 
     if (debug)write(logunit,'(a,i5)')'enter '//trim(subname)//' ',kk
     rc = ESMF_SUCCESS
@@ -279,9 +326,9 @@ contains
     call ESMF_FieldGet(flddst, farrayptr=dstptr, rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) return
 
-    call ESMF_FieldFill(fldsrc, dataFillScheme="const", const1=0.d0, rc=rc)
+    call ESMF_FieldFill(fldsrc, dataFillScheme="const", const1=0.0, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    call ESMF_FieldFill(flddst, dataFillScheme="const", const1=0.d0, rc=rc)
+    call ESMF_FieldFill(flddst, dataFillScheme="const", const1=0.0, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     srcptr = src_field
@@ -303,9 +350,17 @@ contains
     if (debug)write(logunit,'(a,i5)')'exit '//trim(subname)//' ',kk
   end subroutine remapRH2ddyn
 
-  !----------------------------------------------------------
-  ! rotate vectors from EW->IJ and map back to native staggers
-  !----------------------------------------------------------
+  !> Rotate 2D vectors from EN->IJ and map back to native staggers
+  !!
+  !! @param[in]  wdir     the path to the required ESMF regridding weights
+  !! @param[in]  cosrot   the cosine of the rotation angle
+  !! @param[in]  sinrot   the sine of the rotation angle
+  !! @param[in]  vars     a structure describing the variable metadata
+  !! @param[in]  dims     the dimensions of the fields
+  !! @param[in]  nflds    the number of fields in the packed array
+  !! @param[out] fields   the rotated and mapped fields
+  !!
+  !! @author Denise.Worthen@noaa.gov
   subroutine rotremap2d(wdir, vars, cosrot, sinrot, dims, nflds, fields)
 
     character(len=*), intent(in)    :: wdir
@@ -320,6 +375,7 @@ contains
     character(len=10)  :: vgrid1, vgrid2
     character(len=240) :: wgtsfile
     character(len=20)  :: subname = 'rotremap2d'
+    !----------------------------------------------------------------------------
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)
 
@@ -350,9 +406,17 @@ contains
     if (debug)write(logunit,'(a)')'exit '//trim(subname)
   end subroutine rotremap2d
 
-  !----------------------------------------------------------
-  ! rotate nlevs vectors from EW->IJ and map back to native staggers
-  !----------------------------------------------------------
+  !> Rotate 3D vectors on nlevs from EN->IJ and map back to native staggers
+  !!
+  !! @param[in]  wdir     the path to the required ESMF regridding weights
+  !! @param[in]  cosrot   the cosine of the rotation angle
+  !! @param[in]  sinrot   the sine of the rotation angle
+  !! @param[in]  vars     a structure describing the variable metadata
+  !! @param[in]  dims     the dimensions of the fields
+  !! @param[in]  nflds    the number of fields in the packed array
+  !! @param[out] fields   the rotated and mapped fields
+  !!
+  !! @author Denise.Worthen@noaa.gov
   subroutine rotremap3d(wdir, vars, cosrot, sinrot, dims, nflds, fields)
 
     character(len=*), intent(in)    :: wdir
@@ -367,6 +431,7 @@ contains
     character(len=10)  :: vgrid1, vgrid2
     character(len=240) :: wgtsfile
     character(len=20)  :: subname = 'rotremap3d'
+    !----------------------------------------------------------------------------
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)
 
@@ -397,10 +462,14 @@ contains
     if (debug)write(logunit,'(a)')'exit '//trim(subname)
   end subroutine rotremap3d
 
-  !----------------------------------------------------------
-  !
-  !----------------------------------------------------------
-
+  !> A dynamic mask procedure for ocean vertical levels
+  !!
+  !! @param[in]  dynamicMaskList      an ESMF Dynamic Mask element list
+  !! @param[in]  dynamicSrcMaskValue  the masking value on the source grid (optional)
+  !! @param[in]  dynamicDstMaskValue  the masking value on the destination grid (optional)
+  !! @param[out] rc                   an error return code
+  !!
+  !! @author Adapted from example in ESMF Reference manual (37.2.6 Dynamic Masking)
   subroutine dynLevMaskProc(dynamicMaskList, dynamicSrcMaskValue, dynamicDstMaskValue, rc)
 
     ! input/output arguments
@@ -413,14 +482,15 @@ contains
     integer  :: i, j
     real(ESMF_KIND_R8) :: renorm
     character(len=20)  :: subname = 'dynLevMaskProc'
+    !----------------------------------------------------------------------------
 
     if (debug)write(logunit,'(a)')'enter '//trim(subname)
     rc = ESMF_SUCCESS
 
     if (associated(dynamicMaskList)) then
        do i=1, size(dynamicMaskList)
-          dynamicMaskList(i)%dstElement = 0.0d0 ! set to zero
-          renorm = 0.d0 ! reset
+          dynamicMaskList(i)%dstElement = 0.0 ! set to zero
+          renorm = 0.0 ! reset
           do j = 1, size(dynamicMaskList(i)%factor)
              if (dynamicSrcMaskValue /= dynamicMaskList(i)%srcElement(j)) then
                 dynamicMaskList(i)%dstElement = dynamicMaskList(i)%dstElement + &
@@ -428,7 +498,7 @@ contains
                 renorm = renorm + dynamicMaskList(i)%factor(j)
              endif
           enddo
-          if (renorm > 0.d0) then
+          if (renorm > 0.0) then
              dynamicMaskList(i)%dstElement = dynamicMaskList(i)%dstElement / renorm
           else if (present(dynamicSrcMaskValue)) then
              dynamicMaskList(i)%dstElement = dynamicSrcMaskValue
@@ -442,14 +512,20 @@ contains
 
   end subroutine DynLevMaskProc
 
-  !----------------------------------------------------------
-  ! handle ESMF errors
-  !----------------------------------------------------------
+  !> Handle ESMF errors
+  !!
+  !! @param[in]  rc         return code to check
+  !! @param[in]  line       integer source line number
+  !! @param[in]  file       user-provided source file name
+  !! @return     ChkErr     a logical indicating if an ESMF error was detected
+  !!
+  !! @author Denise.Worthen@noaa.gov
   logical function ChkErr(rc, line, file)
-    integer, intent(in) :: rc            !< return code to check
-    integer, intent(in) :: line          !< Integer source line number
-    character(len=*), intent(in) :: file !< User-provided source file name
+    integer, intent(in) :: rc
+    integer, intent(in) :: line
+    character(len=*), intent(in) :: file
     integer :: lrc
+    !----------------------------------------------------------------------------
     ChkErr = .false.
     lrc = rc
     if (ESMF_LogFoundError(rcToCheck=lrc, msg=ESMF_LOGERR_PASSTHRU, line=line, file=file)) then

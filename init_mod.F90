@@ -49,9 +49,9 @@ module init_mod
 contains
   !>  Read input namelist file
   !!
-  !! param[in]   fname     namelist file
-  !! param[out]  errmsg    return error message
-  !! param[out]  rc        return error code
+  !! @param[in]   fname     namelist file
+  !! @param[out]  errmsg    return error message
+  !! @param[out]  rc        return error code
   !!
   !! @author Denise.Worthen@noaa.gov
   subroutine readnml(fname,errmsg,rc)
@@ -144,6 +144,9 @@ contains
 
   !>  Read the input csv file and fill the vardefs type
   !!
+  !! @param[in]    fname     input csv file
+  !! @param[out]   errmsg    return error message
+  !! @param[out]   rc        return error code
   !! @param[out]  nvalid  the number of variables in the csv file
   !!
   !! @author Denise.Worthen@noaa.gov
@@ -162,7 +165,8 @@ contains
 
     !----------------------------------------------------------------------------
 
-    nvalid = 0
+    errmsg='' ! for successful return
+    rc = 0    ! for successful retun
 
     open(newunit=iounit, file=trim(fname), status='old', iostat=ierr)
     if (ierr /= 0) then
