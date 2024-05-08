@@ -58,6 +58,12 @@ program ocniceprep
   ! --------------------------------------------------------
 
   call readnml('ocniceprep.nml',errmsg,rc)
+  if (rc /= 0) then
+     write(0,'(a)')trim(errmsg)
+     stop
+  else
+     write(logunit,'(a)')trim(errmsg)
+  end if
   call readcsv(nvalid)
 
   ! --------------------------------------------------------

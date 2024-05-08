@@ -10,22 +10,22 @@ module init_mod
 
   public
 
-  integer, parameter :: maxvars = 60           !< The maximum number of fields expected in a source file
+  integer, parameter :: maxvars = 60         !< The maximum number of fields expected in a source file
   character(len=10)  :: maskvar = 'h'        !< The variable in the ocean source file used to create
                                              !< the interpolation mask with dynamic masking
   type :: vardefs
-     character(len= 20)   :: var_name          !< A variable's variable name
-     character(len=120)   :: long_name         !< A variable's long name
-     character(len= 20)   :: units             !< A variable's unit
-     character(len= 20)   :: var_remapmethod   !< A variable's mapping method
-     integer              :: var_dimen         !< A variable's dimensionality
-     character(len=  4)   :: var_grid          !< A variable's input grid location
-     character(len= 20)   :: var_pair          !< A variable's pair
-     character(len=  4)   :: var_pair_grid     !< A pair variable grid
+     character(len= 20)   :: var_name        !< A variable's variable name
+     character(len=120)   :: long_name       !< A variable's long name
+     character(len= 20)   :: units           !< A variable's unit
+     character(len= 20)   :: var_remapmethod !< A variable's mapping method
+     integer              :: var_dimen       !< A variable's dimensionality
+     character(len=  4)   :: var_grid        !< A variable's input grid location
+     character(len= 20)   :: var_pair        !< A variable's pair
+     character(len=  4)   :: var_pair_grid   !< A pair variable grid
   end type vardefs
 
-  type(vardefs) :: outvars(maxvars)            !< An empty structure filled by reading a csv file
-                                               !< describing the fields
+  type(vardefs) :: outvars(maxvars)          !< An empty structure filled by reading a csv file
+                                             !< describing the fields
 
   character(len=10)  :: ftype      !< The type of tripole grid (ocean or ice)
   character(len=10)  :: fsrc       !< A character string for tripole grid
@@ -84,37 +84,31 @@ contains
     else
        ! Open and read namelist file.
        open (action='read', file=trim(fname), iostat=ierr, newunit=iounit)
-       print *,ierr
        read (nml=ocniceprep_nml, iostat=ierr, unit=iounit)
-       print *,ierr,iounit,trim(ftype),trim(wgtsdir),trim(griddir),dstdims,srcdims,debug
-       !if (ierr /= 0) then
-          backspace(iounit)
-          read(iounit,'(a)')tmpstr
-          print *,trim(tmpstr)
-       !   rc = 1
-       !   write (errmsg, '(a)') 'FATAL ERROR: invalid namelist format.'
-       !   return
-       !end if
-       close (iounit)
+       if (ierr /= 0) then
+          rc = 1
+          write (errmsg, '(a)') 'FATAL ERROR: invalid namelist format.'
+          return
        end if
-    print *,'here'
+       close (iounit)
+    end if
+
     ! check that model is either ocean or ice
     if (trim(ftype) /= 'ocean' .and. trim(ftype) /= 'ice') then
        rc = 1
        write (errmsg, '(a)') 'FATAL ERROR: ftype must be ocean or ice'
+       return
     end if
-    print *,srcdims,dstdims
+
     ! set grid dimensions and names
     nxt = srcdims(1); nyt = srcdims(2)
     nxr = dstdims(1); nyr = dstdims(2)
-
-
 
     fsrc = '' ; fdst = ''
     if (nxt == 1440 .and. nyt == 1080) fsrc = 'mx025'    ! 1/4deg tripole
     if (len_trim(fsrc) == 0) then
        rc = 1
-       write(errmsg,'(a)')'FATAL ERROR: source grid dimensions unknown'
+       write(errmsg,'(a)')'FATAL ERROR: source grid dimensions incorrect'
        return
     end if
 
@@ -123,7 +117,7 @@ contains
     if (nxr == 72   .and. nyr == 35)  fdst = 'mx500'     ! 5deg tripole
     if (len_trim(fdst) == 0) then
        rc = 1
-       write(errmsg,'(a)')'FATAL ERROR: destination grid dimensions unknown'
+       write(errmsg,'(a)')'FATAL ERROR: destination grid dimensions incorrect'
        return
     end if
 
@@ -133,11 +127,19 @@ contains
     else
        do_ocnprep = .false.
     end if
+
     input_file = trim(ftype)//'.nc'
+    inquire (file=trim(input_file), exist=exists)
+    if (.not. exists) then
+       write (errmsg, '(a)') 'FATAL ERROR: input file '//trim(input_file)//' does not exist.'
+       rc=1
+       return
+    end if
 
     ! log file
     open(newunit=logunit, file=trim(ftype)//'.prep.log',form='formatted')
     if (debug) write(logunit, '(a)')'input file: '//trim(input_file)
+
     ! all checks pass, continue
     write(errmsg,'(a)')' Namelist successfully read, continue'
     rc = 0
