@@ -61,23 +61,20 @@ contains
     integer,          intent(out) :: rc
 
     ! local variable
-    logical :: exists
+    logical :: fexist
     integer :: ierr, iounit
     integer :: srcdims(2), dstdims(2)
-    character(len=100) :: tmpstr
     !----------------------------------------------------------------------------
 
-    namelist /ocniceprep_nml/ ftype, srcdims, wgtsdir, griddir, dstdims, debug
+    namelist /ocniceprep_nml/ ftype, wgtsdir, griddir, srcdims, dstdims, debug
 
 
     srcdims = 0; dstdims = 0
     errmsg='' ! for successful return
     rc = 0    ! for successful retun
-    print *,'X0 ',trim(fname)
 
-    inquire (file=trim(fname), exist=exists)
-    print *,exists
-    if (.not. exists) then
+    inquire(file=trim(fname), exist=fexist)
+    if (.not. fexist) then
        write (errmsg, '(a)') 'FATAL ERROR: input file '//trim(fname)//' does not exist.'
        rc=1
        return
@@ -129,8 +126,8 @@ contains
     end if
 
     input_file = trim(ftype)//'.nc'
-    inquire (file=trim(input_file), exist=exists)
-    if (.not. exists) then
+    inquire (file=trim(input_file), exist=fexist)
+    if (.not. fexist) then
        write (errmsg, '(a)') 'FATAL ERROR: input file '//trim(input_file)//' does not exist.'
        rc=1
        return
@@ -150,24 +147,29 @@ contains
   !! @param[out]  nvalid  the number of variables in the csv file
   !!
   !! @author Denise.Worthen@noaa.gov
-  subroutine readcsv(nvalid)
+  subroutine readcsv(fname,errmsg,rc,nvalid)
 
-    integer, intent(out) :: nvalid
+    character(len=*), intent(in)  :: fname
+    character(len=*), intent(out) :: errmsg
+    integer, intent(out)          :: rc
+    integer, intent(out)          :: nvalid
 
     ! local variables
     character(len= 40) :: fname
     character(len=100) :: chead
     character(len= 20) :: c1,c3,c4,c5,c6
-    integer :: i2
+    integer :: i2, idx1,idx2
     integer :: nn,n,ierr,iounit
 
     !----------------------------------------------------------------------------
 
-    fname=trim(ftype)//'.csv'
+    nvalid = 0
+
     open(newunit=iounit, file=trim(fname), status='old', iostat=ierr)
     if (ierr /= 0) then
-       write (0, '(3a)') 'FATAL ERROR: input file "', trim(fname), '" does not exist.'
-       stop 4
+       rc = 1
+       write (errmsg, '(a)') 'FATAL ERROR: input file '//trim(fname)//' does not exist.'
+       return
     end if
 
     read(iounit,*)chead
@@ -187,6 +189,30 @@ contains
     end do
     close(iounit)
     nvalid = nn
+
+!#ifdef test
+    ! check for u,v pairs, these should be listed in csv file in ordred pairs
+    idx1 = 0; idx2 = 0
+    do n = 1,nvalid
+       if (len_trim(outvars(n)%var_pair) > 0 .and. idx1 .eq. 0) then
+          idx1 = n
+          idx2 = n+1
+       end if
+    end do
+    if (trim(outvars(idx1)%var_pair) /= trim(outvars(idx2)%var_name)) then
+       rc = 1
+       write(errmsg,'(a)')'FATAL ERROR: vector pair for '//trim(outvars(idx1)%var_name)//' is not set correctly'
+       return
+    end if
+    if (trim(outvars(idx2)%var_pair) /= trim(outvars(idx1)%var_name)) then
+       rc = 1
+       write(errmsg,'(a)')'FATAL ERROR: vector pair for '//trim(outvars(idx2)%var_name)//' is not set correctly'
+       return
+    end if
+!#endif
+    ! all checks pass, continue
+    write(errmsg,'(a)')'CSV successfully read, continue'
+    rc = 0
 
   end subroutine readcsv
 
