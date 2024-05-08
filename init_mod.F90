@@ -1,3 +1,9 @@
+!> @file
+!! @brief Define the input namelist variables
+!! @author Denise.Worthen@noaa.gov
+!!
+!> This module contains the namelist variables
+!! @author Denise.Worthen@noaa.gov
 module init_mod
 
   implicit none
@@ -5,7 +11,8 @@ module init_mod
   public
 
   integer, parameter :: maxvars = 60           !< The maximum number of fields expected in a source file
-
+  character(len=10)  :: maskvar = 'h'        !< The variable in the ocean source file used to create
+                                             !< the interpolation mask with dynamic masking
   type :: vardefs
      character(len= 20)   :: var_name          !< A variable's variable name
      character(len=120)   :: long_name         !< A variable's long name
@@ -26,7 +33,7 @@ module init_mod
   character(len=120) :: wgtsdir    !< The directory containing the regridding weights
   character(len=120) :: griddir    !< The directory containing the master tripole grid file
   character(len=20)  :: input_file !< The input file name
-  character(len=10)  :: maskvar = 'h'    !< The variable in the source file used to create the interpolation mask
+
 
   integer :: nxt        !< The x-dimension of the source tripole grid
   integer :: nyt        !< The y-dimension of the source tripole grid
@@ -40,7 +47,13 @@ module init_mod
   logical :: do_ocnprep !< If true, the source file is ocean, otherwise ice
 
 contains
-
+  !>  Read input namelist file
+  !!
+  !! param[in]   fname     namelist file
+  !! param[out]  errmsg    return error message
+  !! param[out]  rc        return error code
+  !!
+  !! @author Denise.Worthen@noaa.gov
   subroutine readnml(fname,errmsg,rc)
 
     character(len=*), intent(in)  :: fname
@@ -51,42 +64,70 @@ contains
     logical :: exists
     integer :: ierr, iounit
     integer :: srcdims(2), dstdims(2)
+    character(len=100) :: tmpstr
+    !----------------------------------------------------------------------------
 
     namelist /ocniceprep_nml/ ftype, srcdims, wgtsdir, griddir, dstdims, debug
 
-    ! --------------------------------------------------------
-    ! read the name list
-    ! --------------------------------------------------------
 
     srcdims = 0; dstdims = 0
     errmsg='' ! for successful return
     rc = 0    ! for successful retun
     print *,'X0 ',trim(fname)
 
-    !fname = 'ocniceprep.nml'
     inquire (file=trim(fname), exist=exists)
+    print *,exists
     if (.not. exists) then
-       write (0, '(3a)') 'FATAL ERROR: input file "', trim(fname), '" does not exist.'
-       !stop 1
-       errmsg='no file'
+       write (errmsg, '(a)') 'FATAL ERROR: input file '//trim(fname)//' does not exist.'
        rc=1
        return
     else
        ! Open and read namelist file.
        open (action='read', file=trim(fname), iostat=ierr, newunit=iounit)
+       print *,ierr
        read (nml=ocniceprep_nml, iostat=ierr, unit=iounit)
-       if (ierr /= 0) then
-          write (6, '(a)') 'Error: invalid namelist format.'
-          rc=1
-          errmsg = 'bad format'
-          return
+       print *,ierr,iounit,trim(ftype),trim(wgtsdir),trim(griddir),dstdims,srcdims,debug
+       !if (ierr /= 0) then
+          backspace(iounit)
+          read(iounit,'(a)')tmpstr
+          print *,trim(tmpstr)
+       !   rc = 1
+       !   write (errmsg, '(a)') 'FATAL ERROR: invalid namelist format.'
+       !   return
+       !end if
+       close (iounit)
        end if
+    print *,'here'
+    ! check that model is either ocean or ice
+    if (trim(ftype) /= 'ocean' .and. trim(ftype) /= 'ice') then
+       rc = 1
+       write (errmsg, '(a)') 'FATAL ERROR: ftype must be ocean or ice'
     end if
-    close (iounit)
+    print *,srcdims,dstdims
+    ! set grid dimensions and names
     nxt = srcdims(1); nyt = srcdims(2)
     nxr = dstdims(1); nyr = dstdims(2)
 
-    ! initialize the source file type and variables
+
+
+    fsrc = '' ; fdst = ''
+    if (nxt == 1440 .and. nyt == 1080) fsrc = 'mx025'    ! 1/4deg tripole
+    if (len_trim(fsrc) == 0) then
+       rc = 1
+       write(errmsg,'(a)')'FATAL ERROR: source grid dimensions unknown'
+       return
+    end if
+
+    if (nxr == 720  .and. nyr == 576) fdst = 'mx050'     ! 1/2deg tripole
+    if (nxr == 360  .and. nyr == 320) fdst = 'mx100'     ! 1deg tripole
+    if (nxr == 72   .and. nyr == 35)  fdst = 'mx500'     ! 5deg tripole
+    if (len_trim(fdst) == 0) then
+       rc = 1
+       write(errmsg,'(a)')'FATAL ERROR: destination grid dimensions unknown'
+       return
+    end if
+
+    ! initialize the source file types
     if (trim(ftype) == 'ocean') then
        do_ocnprep = .true.
     else
@@ -94,42 +135,31 @@ contains
     end if
     input_file = trim(ftype)//'.nc'
 
+    ! log file
     open(newunit=logunit, file=trim(ftype)//'.prep.log',form='formatted')
     if (debug) write(logunit, '(a)')'input file: '//trim(input_file)
-
-    ! set grid names
-    fsrc = ''
-    if (nxt == 1440 .and. nyt == 1080) fsrc = 'mx025'    ! 1/4deg tripole
-    if (len_trim(fsrc) == 0) then
-       write(0,'(a)')'FATAL ERROR: source grid dimensions unknown'
-       stop 2
-    end if
-
-    fdst = ''
-    if (nxr == 720  .and. nyr == 576) fdst = 'mx050'     ! 1/2deg tripole
-    if (nxr == 360  .and. nyr == 320) fdst = 'mx100'     ! 1deg tripole
-    if (nxr == 72   .and. nyr == 35)  fdst = 'mx500'     ! 5deg tripole
-    if (len_trim(fdst) == 0) then
-       write(0,'(a)')'FATAL ERROR: destination grid dimensions unknown'
-       stop 3
-    end if
-
-    !TODO: test for consistency of source/destination resolution
+    ! all checks pass, continue
+    write(errmsg,'(a)')' Namelist successfully read, continue'
+    rc = 0
   end subroutine readnml
 
+  !>  Read the input csv file and fill the vardefs type
+  !!
+  !! @param[out]  nvalid  the number of variables in the csv file
+  !!
+  !! @author Denise.Worthen@noaa.gov
   subroutine readcsv(nvalid)
 
     integer, intent(out) :: nvalid
 
+    ! local variables
     character(len= 40) :: fname
     character(len=100) :: chead
     character(len= 20) :: c1,c3,c4,c5,c6
     integer :: i2
     integer :: nn,n,ierr,iounit
 
-    ! --------------------------------------------------------
-    ! Open and read list of variables
-    ! --------------------------------------------------------
+    !----------------------------------------------------------------------------
 
     fname=trim(ftype)//'.csv'
     open(newunit=iounit, file=trim(fname), status='old', iostat=ierr)
