@@ -138,7 +138,7 @@ contains
     if (debug) write(logunit, '(a)')'input file: '//trim(input_file)
 
     ! all checks pass, continue
-    write(errmsg,'(a)')' Namelist successfully read, continue'
+    write(errmsg,'(a)')'Namelist successfully read, continue'
     rc = 0
   end subroutine readnml
 
@@ -155,7 +155,6 @@ contains
     integer, intent(out)          :: nvalid
 
     ! local variables
-    character(len= 40) :: fname
     character(len=100) :: chead
     character(len= 20) :: c1,c3,c4,c5,c6
     integer :: i2, idx1,idx2
@@ -190,8 +189,7 @@ contains
     close(iounit)
     nvalid = nn
 
-!#ifdef test
-    ! check for u,v pairs, these should be listed in csv file in ordred pairs
+    ! check for u,v pairs, these should be listed in csv file in ordered pairs
     idx1 = 0; idx2 = 0
     do n = 1,nvalid
        if (len_trim(outvars(n)%var_pair) > 0 .and. idx1 .eq. 0) then
@@ -199,6 +197,7 @@ contains
           idx2 = n+1
        end if
     end do
+
     if (trim(outvars(idx1)%var_pair) /= trim(outvars(idx2)%var_name)) then
        rc = 1
        write(errmsg,'(a)')'FATAL ERROR: vector pair for '//trim(outvars(idx1)%var_name)//' is not set correctly'
@@ -209,7 +208,23 @@ contains
        write(errmsg,'(a)')'FATAL ERROR: vector pair for '//trim(outvars(idx2)%var_name)//' is not set correctly'
        return
     end if
-!#endif
+
+    ! check for u velocities on u-staggers and v-velocities on v-staggers
+    if (outvars(idx1)%var_name(1:1) == 'u') then
+       if ((outvars(idx1)%var_grid(1:2) /= 'Cu') .and. outvars(idx1)%var_grid(1:2) /= 'Bu') then
+          rc = 1
+          write(errmsg,'(a)')'FATAL ERROR: u-vector has wrong grid '
+          return
+       end if
+    end if
+    if (outvars(idx2)%var_name(1:1) == 'v') then
+       if ((outvars(idx2)%var_grid(1:2) /= 'Cv') .and. outvars(idx2)%var_grid(1:2) /= 'Bu') then
+          rc = 1
+          write(errmsg,'(a)')'FATAL ERROR: v-vector has wrong grid '
+          return
+       end if
+    end if
+
     ! all checks pass, continue
     write(errmsg,'(a)')'CSV successfully read, continue'
     rc = 0
