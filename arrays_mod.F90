@@ -56,9 +56,9 @@ contains
 
     ! local variables
     integer :: n,i,j,k
-
     character(len=20)         :: subname = 'setup packing'
     !----------------------------------------------------------------------------
+
     if (debug)write(logunit,'(a)')'enter '//trim(subname)
 
     nbilin2d = 0; nbilin3d = 0; nconsd2d = 0
@@ -90,7 +90,6 @@ contains
     end if
 
     ! create types for each packed array and fill values
-
     i = 0; j = 0; k = 0
     do n = 1,nvalid
        if (trim(vars(n)%var_remapmethod) == 'bilinear') then
@@ -107,7 +106,6 @@ contains
     end do
 
     ! create arrays for remapped packed fields
-
      if (nbilin2d > 0) then
         allocate(rgb2d(nbilin2d,nxr*nyr)); rgb2d = 0.0
      end if

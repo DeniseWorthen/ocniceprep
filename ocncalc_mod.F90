@@ -21,7 +21,6 @@ module ocncalc_mod
   public vfill
 
 contains
-
   !> Calculate interface heights locally
   !!
   !! @param[in]  fname  the file name containing needed varables
@@ -41,7 +40,6 @@ contains
     real(kind=8), allocatable, dimension(:)   :: ssh,dilate
     real(kind=8), allocatable, dimension(:,:) :: h
     real(kind=8), allocatable, dimension(:,:) :: etmp
-
     character(len=20) :: subname = 'calc_eta'
     !----------------------------------------------------------------------------
 
@@ -113,5 +111,4 @@ contains
 
     if (debug)write(logunit,'(a)')'exit '//trim(subname)
   end subroutine vfill
-
 end module ocncalc_mod

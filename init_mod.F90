@@ -34,7 +34,6 @@ module init_mod
   character(len=120) :: griddir    !< The directory containing the master tripole grid file
   character(len=20)  :: input_file !< The input file name
 
-
   integer :: nxt        !< The x-dimension of the source tripole grid
   integer :: nyt        !< The y-dimension of the source tripole grid
   integer :: nlevs      !< The vertical or category dimension of the source tripole grid
@@ -68,7 +67,6 @@ contains
 
     namelist /ocniceprep_nml/ ftype, wgtsdir, griddir, srcdims, dstdims, debug
 
-
     srcdims = 0; dstdims = 0
     errmsg='' ! for successful return
     rc = 0    ! for successful retun
@@ -76,7 +74,7 @@ contains
     inquire(file=trim(fname), exist=fexist)
     if (.not. fexist) then
        write (errmsg, '(a)') 'FATAL ERROR: input file '//trim(fname)//' does not exist.'
-       rc=1
+       rc = 1
        return
     else
        ! Open and read namelist file.
@@ -100,7 +98,6 @@ contains
     ! set grid dimensions and names
     nxt = srcdims(1); nyt = srcdims(2)
     nxr = dstdims(1); nyr = dstdims(2)
-
     fsrc = '' ; fdst = ''
     if (nxt == 1440 .and. nyt == 1080) fsrc = 'mx025'    ! 1/4deg tripole
     if (len_trim(fsrc) == 0) then
@@ -138,16 +135,17 @@ contains
     if (debug) write(logunit, '(a)')'input file: '//trim(input_file)
 
     ! all checks pass, continue
-    write(errmsg,'(a)')'Namelist successfully read, continue'
+    write(errmsg,'(a)') 'Namelist successfully read, continue'
     rc = 0
+
   end subroutine readnml
 
-  !>  Read the input csv file and fill the vardefs type
+  !> Read the input csv file and fill the vardefs type
   !!
   !! @param[in]    fname     input csv file
   !! @param[out]   errmsg    return error message
   !! @param[out]   rc        return error code
-  !! @param[out]  nvalid  the number of variables in the csv file
+  !! @param[out]  nvalid    the number of variables in the csv file
   !!
   !! @author Denise.Worthen@noaa.gov
   subroutine readcsv(fname,errmsg,rc,nvalid)
@@ -162,7 +160,6 @@ contains
     character(len= 20) :: c1,c3,c4,c5,c6
     integer :: i2, idx1,idx2
     integer :: nn,n,ierr,iounit
-
     !----------------------------------------------------------------------------
 
     errmsg='' ! for successful return
@@ -234,5 +231,4 @@ contains
     rc = 0
 
   end subroutine readcsv
-
 end module init_mod
